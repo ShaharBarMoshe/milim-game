@@ -4,10 +4,50 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Balloon Archer</title>
+    <link rel="icon" href="data:," />
     <style>
       html, body { margin: 0; height: 100%; background: #1b2a3a; overflow: hidden; }
       #game { width: 100%; height: 100%; }
       canvas { cursor: none; }
+
+      /* Word-list overlay (HTML, not canvas, so Hebrew typing and RTL work natively). */
+      .word-form {
+        position: fixed; inset: 0; z-index: 10;
+        display: flex; align-items: center; justify-content: center;
+        padding: 16px; box-sizing: border-box;
+        background: rgba(10, 25, 45, 0.55);
+        font-family: 'Trebuchet MS', Arial, sans-serif; color: #fff;
+      }
+      .word-panel {
+        width: min(640px, 100%); max-height: 100%; overflow-y: auto; box-sizing: border-box;
+        padding: 22px 26px; border: 3px solid #fff; border-radius: 16px;
+        background: rgba(29, 53, 87, 0.95); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+      }
+      .word-panel h1 { margin: 0 0 8px; font-size: 32px; color: #ffe066; text-shadow: 0 2px 0 #000; }
+      .word-panel h1 span { font-size: 20px; color: #cfe8ff; text-shadow: none; unicode-bidi: isolate; }
+      .word-help { margin: 6px 0; font-size: 15px; color: #cfe8ff; line-height: 1.4; }
+      .word-help code { background: rgba(255, 255, 255, 0.15); padding: 0 5px; border-radius: 4px; unicode-bidi: isolate; }
+      #word-input {
+        display: block; width: 100%; box-sizing: border-box; margin: 10px 0 6px;
+        min-height: 220px; resize: vertical; padding: 10px 12px;
+        font: 18px/1.5 Arial, 'Noto Sans Hebrew', sans-serif;
+        border: 2px solid #8fd3ff; border-radius: 10px; background: #f7fbff; color: #102030;
+        /* Each line picks its own direction, so a Hebrew-first line reads right-to-left. */
+        unicode-bidi: plaintext;
+      }
+      #word-input:focus { outline: 3px solid #ffe066; outline-offset: 1px; }
+      .word-summary { min-height: 1.4em; font-size: 15px; }
+      .word-ok { color: #a8ffb0; }
+      .word-bad { color: #ffb4a8; }
+      .word-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
+      .word-controls label { display: flex; align-items: center; gap: 8px; font-size: 16px; margin-right: auto; }
+      .word-controls select, .word-controls button { font: inherit; font-size: 16px; border-radius: 8px; }
+      .word-controls select { padding: 6px 8px; border: 2px solid #8fd3ff; }
+      .word-controls button { padding: 8px 18px; border: 0; cursor: pointer; color: #fff; font-weight: bold; }
+      #word-start { background: #2e9e4f; font-size: 20px; padding: 10px 28px; }
+      #word-start:disabled { background: #6b7b8a; cursor: not-allowed; }
+      .word-secondary { background: #3a6ea5; }
+      .word-form button:focus-visible, .word-form select:focus-visible { outline: 3px solid #ffe066; outline-offset: 2px; }
     </style>
   </head>
   <body>

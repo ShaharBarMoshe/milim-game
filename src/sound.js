@@ -45,5 +45,10 @@ export const sfx = {
     tone({ type: 'square', from: 900, to: 200, duration: 0.08, volume: 0.08 });
   },
   thud: () => noise(0.08, 0.35, 600),
+  correct: () => {
+    tone({ type: 'sine', from: 660, to: 680, duration: 0.12, volume: 0.12 });
+    setTimeout(() => tone({ type: 'sine', from: 990, to: 1010, duration: 0.18, volume: 0.12 }), 90);
+  },
+  wrong: () => tone({ type: 'sawtooth', from: 220, to: 110, duration: 0.3, volume: 0.1 }),
   tick: () => tone({ type: 'sine', from: 880, to: 880, duration: 0.05, volume: 0.08 }),
 };

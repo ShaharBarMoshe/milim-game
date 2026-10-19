@@ -1,6 +1,6 @@
 # Balloon Archer
 
-A Phaser 3 arrow-shooting game: a mounted hunter (`hunter.jpeg`) shoots rising balloons.
+A Phaser 3 vocabulary game (English ↔ Hebrew): a mounted hunter (`hunter.jpeg`) shoots the balloon carrying the right translation.
 
 ## Play
 
@@ -9,11 +9,29 @@ npm install
 npm run dev        # open the printed http://localhost URL
 ```
 
-- **Mouse**: aim. The hunter turns and picks the bow pose closest to your angle.
-- **Left click**: shoot. Arrows fly with gravity and wind, so a bad angle misses.
+1. **Word list**: type one pair per line, e.g. `dog - כלב` (also `,` `:` `=` `–` `—` or a tab). Hebrew-first lines are
+   swapped automatically, blank lines and lines starting with `#` are ignored, and unreadable lines are listed by number.
+   Pick a direction (English→Hebrew, Hebrew→English or Mixed) and press **Start** (needs at least 2 pairs; Ctrl+Enter works too).
+   The list is saved in the browser; the first visit starts with a sample list.
+2. **Questions**: the banner shows a word and a wave of balloons rises with candidate translations.
+   - Click the right balloon: the arrow homes in and pops it. +10 points, plus 2 per answer in your current streak (up to +10).
+   - Click a wrong balloon: the arrow flies past it, −5 points (never below 0), the streak resets and the right balloon flashes.
+   - Clicking empty sky does nothing. If the answer floats away, the answer is shown and the next question comes up.
+3. After 60 seconds you get your score, correct/wrong/missed counts, accuracy and the words to practise,
+   with **Play again** and **Edit words**.
+
+- **Mouse**: the hunter turns and draws the bow toward the cursor.
 - **A / D** or **← / →**: ride left/right (the horse gallops).
 
-You get 60 seconds. Smaller balloons are worth more, consecutive hits build a combo, and one arrow through several balloons multiplies the points. Your best score is saved in the browser.
+## Code
+
+- `src/vocab.js`: parse/serialize the word list, sample pairs, localStorage load/save (never throws).
+- `src/quiz.js`: questions, options, scoring and stats (`Quiz`, `shuffle`, `DIRECTIONS`); pass `random` for determinism.
+- `src/ballistics.js`: `steer` (homing step) and `missPoint` (where a deliberate miss passes).
+- `src/ui/wordListForm.js`: the HTML word-list overlay (HTML so Hebrew typing and RTL work natively).
+- `src/scenes/GameScene.js`: the game. In dev, `window.game.scene.getScene('game')` exposes `state`, `quiz` and `balloons`.
+
+The first three are Phaser-free and are unit-tested in Node (`npm test`); `npm run test:e2e` drives the game in Chrome.
 
 ## Sprites
 
