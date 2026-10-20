@@ -11,7 +11,7 @@ npm run dev        # open the printed http://localhost URL
 
 1. **Word list**: type one pair per line, e.g. `dog - כלב` (also `,` `:` `=` `–` `—` or a tab). Hebrew-first lines are
    swapped automatically, blank lines and lines starting with `#` are ignored, and unreadable lines are listed by number.
-   Pick a direction (English→Hebrew, Hebrew→English or Mixed) and press **Start** (needs at least 2 pairs; Ctrl+Enter works too).
+   Pick a direction (Mixed by default: some questions show the English word, some the Hebrew; or English→Hebrew / Hebrew→English only) and press **Start** (needs at least 2 pairs; Ctrl+Enter works too).
    The list is saved in the browser; the first visit starts with a sample list.
 2. **Questions**: the banner shows a word and a wave of balloons rises with candidate translations.
    - Click the right balloon: the arrow homes in and pops it. +10 points, plus 2 per answer in your current streak (up to +10).
@@ -21,7 +21,7 @@ npm run dev        # open the printed http://localhost URL
    with **Play again** and **Edit words**.
 
 - **Mouse**: the hunter turns and draws the bow toward the cursor.
-- **A / D** or **← / →**: ride left/right (the horse gallops).
+- The hunter gallops back and forth on his own during a round and halts to shoot. **A / D** or **← / →** turn the horse around.
 
 ## Code
 

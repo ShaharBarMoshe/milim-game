@@ -12,8 +12,9 @@ const GROUND_Y = 640;
 
 const ARCHER_SCALE = 0.62;
 const ARCHER_MIN_X = 90;
-const ARCHER_MAX_X = 380;
-const ARCHER_WALK_SPEED = 260;
+const ARCHER_MAX_X = 440;
+// During a round the hunter rides back and forth on his own, halting only to shoot.
+const RIDE_SPEED = 170;
 const GALLOP_FPS = 10;
 // Bow hand in the hunter frames, relative to the sprite's bottom-centre origin (unscaled px).
 const BOW_HAND = { x: 46, y: 187 };
@@ -67,10 +68,12 @@ export default class GameScene extends Phaser.Scene {
     this.quiz = null;
     this.question = null;
     this.pairs = null;
-    this.direction = DIRECTIONS.EN_HE;
+    // Mixed by default: some questions show the English word, others the Hebrew one.
+    this.direction = DIRECTIONS.MIXED;
     this.waveId = 0;
     this.wind = 0;
     this.ready = true;
+    this.rideDir = 1;
     this.best = loadBest();
 
     this.drawBackground();
@@ -547,9 +550,15 @@ export default class GameScene extends Phaser.Scene {
 
   updateAim() {
     const p = this.input.activePointer;
-    this.archer.setFlipX(p.worldX < this.archer.x);
+    const gallop = ARCHER_FRAMES.gallopLevel;
+    if (this.galloping) {
+      this.archer.setFlipX(this.rideDir < 0);
+      this.archer.setFrame(gallop[Math.floor((this.time.now / 1000) * GALLOP_FPS) % gallop.length]);
+    } else {
+      this.archer.setFlipX(p.worldX < this.archer.x);
+    }
 
-    if (this.ready) {
+    if (this.ready && !this.galloping) {
       // Pick the pose whose bow angle is closest to where the mouse points.
       const angle = this.aimAngle();
       const elevation = Phaser.Math.RadToDeg(-Math.atan2(Math.sin(angle), Math.abs(Math.cos(angle))));
@@ -557,10 +566,7 @@ export default class GameScene extends Phaser.Scene {
       if (up) {
         this.archer.setFrame(up[1]);
       } else {
-        // Level shots use the gallop cycle, animated while the horse is moving.
-        const gallop = ARCHER_FRAMES.gallopLevel;
-        const step = this.galloping ? Math.floor((this.time.now / 1000) * GALLOP_FPS) % gallop.length : 0;
-        this.archer.setFrame(gallop[step]);
+        this.archer.setFrame(gallop[0]);
       }
     }
 
@@ -568,7 +574,7 @@ export default class GameScene extends Phaser.Scene {
     const origin = this.launchPoint();
     const angle = this.aimAngle();
     this.aimGuide.clear();
-    if (this.ready && this.state === 'playing') {
+    if (this.ready && !this.galloping && this.state === 'playing') {
       this.aimGuide.fillStyle(0xffffff, 0.8);
       for (let i = 1; i <= 4; i++) {
         const d = 30 + i * 16;
@@ -590,17 +596,20 @@ export default class GameScene extends Phaser.Scene {
   }
 
   moveArcher(dt) {
-    // Keys aren't captured, so ignore them while the player is typing the word list.
-    if (this.state === 'setup') {
-      this.galloping = false;
-      return;
+    // Ride only during a round, and halt while shooting and reloading (ready is false then).
+    this.galloping = this.state === 'playing' && this.ready;
+    if (!this.galloping) return;
+
+    // A / D (or arrows) turn the horse around. Keys aren't captured, so this is skipped
+    // outside a round, while the player may be typing the word list.
+    if (this.keys.A.isDown || this.keys.LEFT.isDown) this.rideDir = -1;
+    if (this.keys.D.isDown || this.keys.RIGHT.isDown) this.rideDir = 1;
+
+    this.archer.x += this.rideDir * RIDE_SPEED * dt;
+    if (this.archer.x <= ARCHER_MIN_X || this.archer.x >= ARCHER_MAX_X) {
+      this.archer.x = Phaser.Math.Clamp(this.archer.x, ARCHER_MIN_X, ARCHER_MAX_X);
+      this.rideDir = this.archer.x <= ARCHER_MIN_X ? 1 : -1;
     }
-    const left = this.keys.A.isDown || this.keys.LEFT.isDown;
-    const right = this.keys.D.isDown || this.keys.RIGHT.isDown;
-    const dir = (right ? 1 : 0) - (left ? 1 : 0);
-    this.galloping = dir !== 0;
-    if (!dir) return;
-    this.archer.x = Phaser.Math.Clamp(this.archer.x + dir * ARCHER_WALK_SPEED * dt, ARCHER_MIN_X, ARCHER_MAX_X);
   }
 
   // Correct answers get a homing arrow that always hits; wrong ones fly past the balloon.

@@ -7,7 +7,7 @@ const MIN_PAIRS = 2;
 
 let root = null;
 
-export function showWordListForm({ initialText = '', initialDirection = DIRECTIONS.EN_HE, onStart } = {}) {
+export function showWordListForm({ initialText = '', initialDirection = DIRECTIONS.MIXED, onStart } = {}) {
   hideWordListForm();
 
   root = document.createElement('form');
@@ -27,9 +27,9 @@ export function showWordListForm({ initialText = '', initialDirection = DIRECTIO
       <div class="word-controls">
         <label>Direction
           <select id="word-direction">
+            <option value="${DIRECTIONS.MIXED}">Mixed (English &amp; Hebrew)</option>
             <option value="${DIRECTIONS.EN_HE}">English → Hebrew</option>
             <option value="${DIRECTIONS.HE_EN}">Hebrew → English</option>
-            <option value="${DIRECTIONS.MIXED}">Mixed</option>
           </select>
         </label>
         <button type="button" id="word-sample" class="word-secondary">Sample list</button>
