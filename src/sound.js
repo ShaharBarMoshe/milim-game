@@ -38,7 +38,7 @@ function noise(duration, volume, cutoff) {
   src.start();
 }
 
-export const sfx = {
+const effects = {
   shoot: () => tone({ type: 'triangle', from: 420, to: 90, duration: 0.18, volume: 0.25 }),
   pop: () => {
     noise(0.15, 0.6, 3500);
@@ -51,4 +51,28 @@ export const sfx = {
   },
   wrong: () => tone({ type: 'sawtooth', from: 220, to: 110, duration: 0.3, volume: 0.1 }),
   tick: () => tone({ type: 'sine', from: 880, to: 880, duration: 0.05, volume: 0.08 }),
+  jump: () => tone({ type: 'square', from: 260, to: 620, duration: 0.16, volume: 0.07 }),
+  splash: () => {
+    noise(0.7, 0.5, 900);
+    tone({ type: 'sawtooth', from: 300, to: 60, duration: 0.6, volume: 0.08 });
+  },
+  win: () =>
+    [523, 659, 784, 1047].forEach((f, i) =>
+      setTimeout(() => tone({ type: 'triangle', from: f, to: f, duration: 0.16, volume: 0.12 }), i * 110),
+    ),
 };
+
+// Sounds are optional: an audio error (no output device, blocked context) must never throw into the
+// game loop, where it would stop Phaser from rendering and freeze the game.
+export const sfx = Object.fromEntries(
+  Object.entries(effects).map(([name, play]) => [
+    name,
+    () => {
+      try {
+        play();
+      } catch (err) {
+        console.warn(`sound "${name}" failed`, err);
+      }
+    },
+  ]),
+);

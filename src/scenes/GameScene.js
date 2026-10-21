@@ -5,6 +5,7 @@ import { Quiz, DIRECTIONS } from '../quiz.js';
 import { steer, missPoint } from '../ballistics.js';
 import { SAMPLE_PAIRS, loadWordList, serializeWordList } from '../vocab.js';
 import { showWordListForm, hideWordListForm } from '../ui/wordListForm.js';
+import { lavaUnlocked, successRate, UNLOCK_SUCCESS } from '../spelling.js';
 
 const W = 1280;
 const H = 720;
@@ -263,7 +264,8 @@ export default class GameScene extends Phaser.Scene {
     const shown = s.missedPairs.slice(0, 12);
     const rows = shown.length > 6 ? Math.ceil(shown.length / 2) : shown.length;
     const extra = s.missedPairs.length > shown.length ? 30 : 0;
-    const panelH = 330 + (shown.length ? 80 + rows * 32 + extra : 0);
+    const unlocked = lavaUnlocked(s);
+    const panelH = 330 + (unlocked ? 50 : 0) + (shown.length ? 80 + rows * 32 + extra : 0);
     const top = H / 2 - panelH / 2;
     items.push(this.add.rectangle(W / 2, H / 2, 820, panelH, 0x1d3557, 0.9).setStrokeStyle(4, 0xffffff));
     items.push(this.add.text(W / 2, top + 50, isBest ? 'NEW BEST!' : "TIME'S UP!", {
@@ -296,8 +298,23 @@ export default class GameScene extends Phaser.Scene {
     }
 
     const by = top + panelH - 55;
-    items.push(this.makeButton(W / 2 - 130, by, 'Play again', 0x2e9e4f, () => this.startRound()));
-    items.push(this.makeButton(W / 2 + 130, by, 'Edit words', 0x3a6ea5, () => this.openSetup()));
+    if (unlocked) {
+      // 90%+ of the questions right opens the lava spelling level.
+      items.push(this.add.text(W / 2, by - 62, `🌋 ${successRate(s)}% success — Lava spelling level unlocked!`, {
+        fontFamily: FONT, fontSize: '24px', fontStyle: 'bold', color: '#ffb36b', stroke: '#000', strokeThickness: 4,
+      }).setOrigin(0.5));
+      items.push(this.makeButton(W / 2 - 260, by, 'Play again', 0x2e9e4f, () => this.startRound()));
+      items.push(this.makeButton(W / 2, by, 'Lava level', 0xc0480e, () => this.scene.start('lava', { pairs: this.pairs })));
+      items.push(this.makeButton(W / 2 + 260, by, 'Edit words', 0x3a6ea5, () => this.openSetup()));
+    } else {
+      if (s.correct + s.wrong + s.missed > 0) {
+        items.push(this.add.text(W / 2, by - 50, `Get ${UNLOCK_SUCCESS}% right to unlock the lava level`, {
+          fontFamily: FONT, fontSize: '18px', color: '#cfe8ff',
+        }).setOrigin(0.5));
+      }
+      items.push(this.makeButton(W / 2 - 130, by, 'Play again', 0x2e9e4f, () => this.startRound()));
+      items.push(this.makeButton(W / 2 + 130, by, 'Edit words', 0x3a6ea5, () => this.openSetup()));
+    }
     this.overlay = this.add.container(0, 0, items).setDepth(95);
   }
 
@@ -582,17 +599,14 @@ export default class GameScene extends Phaser.Scene {
       }
     }
 
+    // The pointer itself is a CSS cursor (index.html); a green ring marks a balloon you can still pick.
     this.crosshair.clear();
-    if (this.state === 'setup') return;
-    // The reticle turns green over a balloon you can still pick.
-    const target = this.state === 'playing' && !this.waveResolved ? this.balloonAt(p.worldX, p.worldY) : null;
-    const color = target && !target.tried ? 0xa8ffb0 : 0xffffff;
-    this.crosshair.lineStyle(3, color, 0.95);
-    this.crosshair.strokeCircle(p.worldX, p.worldY, 14);
-    this.crosshair.lineBetween(p.worldX - 22, p.worldY, p.worldX - 8, p.worldY);
-    this.crosshair.lineBetween(p.worldX + 8, p.worldY, p.worldX + 22, p.worldY);
-    this.crosshair.lineBetween(p.worldX, p.worldY - 22, p.worldX, p.worldY - 8);
-    this.crosshair.lineBetween(p.worldX, p.worldY + 8, p.worldX, p.worldY + 22);
+    if (this.state !== 'playing' || this.waveResolved) return;
+    const target = this.balloonAt(p.worldX, p.worldY);
+    if (target && !target.tried) {
+      this.crosshair.lineStyle(4, 0x2e9e4f, 1).strokeCircle(p.worldX, p.worldY, 24);
+      this.crosshair.lineStyle(2, 0xa8ffb0, 1).strokeCircle(p.worldX, p.worldY, 24);
+    }
   }
 
   moveArcher(dt) {

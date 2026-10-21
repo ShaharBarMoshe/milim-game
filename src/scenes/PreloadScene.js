@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { SAMPLE_PAIRS, loadWordList, parseWordList } from '../vocab.js';
 
 export const BALLOON_COLORS = {
   red: 0xe8343c,
@@ -25,6 +26,19 @@ export const ARCHER_FRAMES = {
   ],
 };
 
+// Frame indices in robot.png (lava level, see ROBOT_FRAMES in tools/slice_sprites.py). Faces right.
+export const ROBOT_FRAMES = {
+  ready: 0,
+  takeoff: 1,
+  air: 2,
+  land: 3,
+  settle: 4,
+  fall: 5,
+  front: 6,
+  frontCrouch: 7,
+  frontLand: 8,
+};
+
 export default class PreloadScene extends Phaser.Scene {
   constructor() {
     super('preload');
@@ -38,6 +52,8 @@ export default class PreloadScene extends Phaser.Scene {
 
     this.load.spritesheet('hunter', 'assets/hunter.png', { frameWidth: 208, frameHeight: 250 });
     this.load.image('arrow', 'assets/arrow.png');
+    this.load.spritesheet('robot', 'assets/robot.png', { frameWidth: 247, frameHeight: 127 });
+    this.load.image('lava_splash', 'assets/lava_splash.png');
     for (const color of Object.keys(BALLOON_COLORS)) {
       this.load.image(`balloon_${color}`, `assets/balloon_${color}.png`);
       this.load.spritesheet(`pop_${color}`, `assets/pop_${color}.png`, { frameWidth: 186, frameHeight: 236 });
@@ -53,7 +69,13 @@ export default class PreloadScene extends Phaser.Scene {
       });
     }
     this.makeProceduralTextures();
-    this.scene.start('game');
+    // ?level=lava jumps straight to the lava level with the saved word list (handy for practice).
+    if (new URLSearchParams(window.location.search).get('level') === 'lava') {
+      const saved = loadWordList();
+      this.scene.start('lava', { pairs: saved ? parseWordList(saved).pairs : SAMPLE_PAIRS });
+    } else {
+      this.scene.start('game');
+    }
   }
 
   makeProceduralTextures() {

@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "public" / "assets"
 HUNTER_SRC = ROOT / "hunter.jpeg"
 BALLOON_SRC = ROOT / "Gemini_Generated_Image_ujowyqujowyqujow.jpeg"
+LAVA_SRC = [ROOT / "lava1.jpeg", ROOT / "lava2.jpeg"]  # robot sheets: 4 rows x 5 boxed cells each
 
 INSET = 3          # pixels trimmed inside each grid cell (JPEG bleed from the white lines)
 BG_THRESHOLD = 38  # max channel value treated as background black
@@ -132,15 +133,63 @@ def extract_gap_frames(path):
     return frames
 
 
-def extract_frames(path):
+def extract_cells(path):
+    """Raw RGB cells of a sheet with white grid lines, row by row."""
     img = Image.open(path).convert("RGB")
     arr = np.asarray(img)
-    frames = []
-    for row in find_cells(img):
-        for x0, y0, x1, y1 in row:
-            cell = arr[y0 + INSET:y1 - INSET, x0 + INSET:x1 - INSET]
-            frames.append(remove_background(cell))
-    return frames
+    return [
+        arr[y0 + INSET:y1 - INSET, x0 + INSET:x1 - INSET]
+        for row in find_cells(img)
+        for x0, y0, x1, y1 in row
+    ]
+
+
+def extract_frames(path):
+    return [remove_background(cell) for cell in extract_cells(path)]
+
+
+def label_components(mask):
+    """4-connected component labels and sizes (sizes[0] is unused)."""
+    h, w = mask.shape
+    labels = np.zeros((h, w), int)
+    sizes = [0]
+    for sy, sx in zip(*np.where(mask)):
+        if labels[sy, sx]:
+            continue
+        n = len(sizes)
+        labels[sy, sx] = n
+        stack, count = [(sy, sx)], 0
+        while stack:
+            y, x = stack.pop()
+            count += 1
+            for ny, nx in ((y + 1, x), (y - 1, x), (y, x + 1), (y, x - 1)):
+                if 0 <= ny < h and 0 <= nx < w and mask[ny, nx] and not labels[ny, nx]:
+                    labels[ny, nx] = n
+                    stack.append((ny, nx))
+        sizes.append(count)
+    return labels, sizes
+
+
+def robot_only(cell, below=6, above=16, min_blob=150):
+    """Cut the robot out of a lava-sheet cell, dropping the rocks and lava baked in under it.
+
+    The ground line is the first row that is mostly rock/lava; everything a few px below it goes,
+    rock/lava-coloured pixels just above it go, and leftover specks (rock outlines) are dropped.
+    """
+    rgba = remove_background(cell)
+    r, b = cell[..., 0].astype(int), cell[..., 2].astype(int)
+    mx, mn = cell.max(axis=2).astype(int), cell.min(axis=2).astype(int)
+    rock = (mx > 85) & (mx - mn < 50)
+    lava = (r > 170) & (r - b > 90)
+    top = np.where((rock | lava).mean(axis=1) > 0.25)[0].min()
+    alpha = rgba[..., 3].copy()
+    alpha[top + below:] = 0
+    alpha[max(0, top - above):][(rock | lava)[max(0, top - above):]] = 0
+    labels, sizes = label_components(alpha > 0)
+    big = [i for i, size in enumerate(sizes) if i and size >= min_blob]
+    alpha[~np.isin(labels, big)] = 0
+    rgba[..., 3] = alpha
+    return rgba
 
 
 def pack(frames, anchor, pad=2):
@@ -210,6 +259,32 @@ def save_png(rgba, name):
 
 BALLOON_HUES = {"red": 0, "orange": 30, "yellow": 55, "green": 120, "blue": 215, "purple": 280}
 
+# Robot frames used by the lava level, as (sheet index, cell index); order = frame index in robot.png.
+# lava1 = jumps that end in the lava, lava2 = jumps that land. Row 0 of both faces right.
+ROBOT_FRAMES = [
+    (0, 0),   # 0 crouch, ready to jump
+    (0, 1),   # 1 take-off
+    (0, 2),   # 2 mid-air
+    (1, 3),   # 3 landing crouch
+    (1, 4),   # 4 landed, settling
+    (0, 3),   # 5 flailing as it falls
+    (0, 15),  # 6 front view, standing
+    (0, 16),  # 7 front view, crouch
+    (0, 17),  # 8 front view, landed
+]
+LAVA_SPLASH_CELL = (0, 4)  # robot sinking in a lava splash; keeps its lava and smoke
+
+
+def slice_robot():
+    if not all(p.exists() for p in LAVA_SRC):
+        print("lava1.jpeg / lava2.jpeg not found - keeping the existing robot assets")
+        return
+    sheets = [extract_cells(p) for p in LAVA_SRC]
+    robot = pack([robot_only(sheets[s][i]) for s, i in ROBOT_FRAMES], "bottom")
+    save_sheet(robot, "robot")
+    s, i = LAVA_SPLASH_CELL
+    save_png(remove_background(sheets[s][i]), "lava_splash")
+
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
@@ -217,6 +292,11 @@ def main():
     hunter = pack(extract_gap_frames(HUNTER_SRC), "bottom")
     save_sheet(hunter, "hunter")
 
+    slice_robot()
+    slice_balloons()
+
+
+def slice_balloons():
     if not BALLOON_SRC.exists():
         print(f"{BALLOON_SRC.name} not found - keeping the existing arrow/balloon/pop assets")
         return

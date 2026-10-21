@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import PreloadScene from './scenes/PreloadScene.js';
 import GameScene from './scenes/GameScene.js';
+import LavaScene from './scenes/LavaScene.js';
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -11,7 +12,7 @@ const game = new Phaser.Game({
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   // Right-click shouldn't open the browser menu over the game.
   disableContextMenu: true,
-  scene: [PreloadScene, GameScene],
+  scene: [PreloadScene, GameScene, LavaScene],
 });
 
 // Handy for poking at the game from the browser console during development.

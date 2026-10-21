@@ -23,12 +23,23 @@ npm run dev        # open the printed http://localhost URL
 - **Mouse**: the hunter turns and draws the bow toward the cursor.
 - The hunter gallops back and forth on his own during a round and halts to shoot. **A / D** or **← / →** turn the horse around.
 
+## Lava level (spelling)
+
+Get **90% or more** of a balloon round right (escaped waves count as misses, at least 5 correct) and the end screen offers the **Lava level**. A robot crosses a lava lake on floating rocks: the banner shows the Hebrew word (e.g. כלב) and each column of rocks holds one letter of the English word plus two wrong letters. Jump d → o → g to reach the flag.
+
+- Click a rock in the next column, or just type the letter.
+- A wrong letter sinks its rock and the robot drowns in the lava: one of 3 lives lost, back on the last safe rock.
+- 10 points per letter, +20 for a word with no mistakes. 5 words per game, taken from your list (single English words of 2–8 letters).
+- Practice it directly: open `http://localhost:5173/?level=lava` (uses the saved word list).
+
 ## Code
 
 - `src/vocab.js`: parse/serialize the word list, sample pairs, localStorage load/save (never throws).
 - `src/quiz.js`: questions, options, scoring and stats (`Quiz`, `shuffle`, `DIRECTIONS`); pass `random` for determinism.
 - `src/ballistics.js`: `steer` (homing step) and `missPoint` (where a deliberate miss passes).
 - `src/ui/wordListForm.js`: the HTML word-list overlay (HTML so Hebrew typing and RTL work natively).
+- `src/spelling.js`: lava-level rules (`lavaUnlocked`, `spellingWord`, `SpellingRun`).
+- `src/scenes/LavaScene.js`: the lava level. In dev, `getScene('lava')` exposes `state`, `run`, `rocks`, `lives`, `score`.
 - `src/scenes/GameScene.js`: the game. In dev, `window.game.scene.getScene('game')` exposes `state`, `quiz` and `balloons`.
 
 The first three are Phaser-free and are unit-tested in Node (`npm test`); `npm run test:e2e` drives the game in Chrome.
@@ -36,6 +47,8 @@ The first three are Phaser-free and are unit-tested in Node (`npm test`); `npm r
 ## Sprites
 
 `tools/slice_sprites.py` (Pillow + NumPy) cuts `hunter.jpeg` into frames along the white gaps between poses, makes the white background transparent, and writes `public/assets/hunter.png`.
+
+For the lava level it reads `lava1.jpeg` (jumps that end in the lava) and `lava2.jpeg` (jumps that land), cuts the robot out of the rocks and lava drawn under it, and writes `robot.png` (9 frames) and `lava_splash.png`.
 
 The arrow, balloon and pop assets were cut from an earlier balloon/arrow sheet (`Gemini_Generated_Image_ujowyqujowyqujow.jpeg`). That sheet is no longer in the folder, so the script keeps the existing files; put it back to regenerate them.
 
