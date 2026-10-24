@@ -17,8 +17,9 @@ npm run dev        # open the printed http://localhost URL
      device's share menu with the file attached (phones, and Chrome, Edge and Safari on Windows and Mac): choose
      WhatsApp or Mail there. A web page can't attach a file to a WhatsApp or email link, so where the browser can't
      share files (e.g. Chrome on Linux) the file is downloaded and WhatsApp or the mail app opens with a message,
-     for you to attach it. **⬇ Download file** just saves it. The friend adds it with **📂 Upload list**.
-   - **📂 Upload list** adds a list from a `.json` word list file (1 MB at most), such as one a friend sent.
+     for you to attach it. Chrome on Android won't share a `.json` file, so there the same list goes as a `.txt` file.
+     **⬇ Download file** just saves it. The friend adds it with **📂 Upload list**.
+   - **📂 Upload list** adds a list from a `.json` word list file, or a `.txt` one holding the same JSON (1 MB at most), such as one a friend sent.
      See **Word list files** below.
    - Add a word by typing the English in one box and the Hebrew in the other (Enter moves on, Enter again adds).
      Wrong input is explained (Hebrew in the English box, a word already in the list, …) and nothing is added.

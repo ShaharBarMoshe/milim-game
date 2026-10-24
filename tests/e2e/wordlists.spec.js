@@ -176,6 +176,18 @@ test('WhatsApp and Email send the list as a JSON file through the share menu', a
     expect(shared.text).not.toMatch(/https?:|#list=/);
     await expect(status(page)).toContainText(`Choose ${app} in the share menu`);
   }
+
+  // Chrome on Android shares only some kinds of file, not .json: the same list goes as .txt.
+  await page.evaluate(() => {
+    navigator.canShare = (data) => Boolean(data?.files?.length) && data.files.every((f) => f.type === 'text/plain' && f.name.endsWith('.txt'));
+    window.__shared = null;
+  });
+  await page.locator('#share-whatsapp').click();
+  const shared = await (await page.waitForFunction(() => window.__shared)).jsonValue();
+  expect(shared.files[0]).toMatchObject({ name: fileNameOf(name).replace(/\.json$/, '.txt'), type: 'text/plain' });
+  expect(JSON.parse(shared.files[0].text).words.map((w) => [w.en, w.he])).toEqual(words);
+  await expect(status(page)).toContainText(`to send ${fileNameOf(name).replace(/\.json$/, '.txt')}`);
+
   await page.locator('#share-close').click();
   await expect(page.locator('#word-share-panel')).toBeHidden();
 });
@@ -228,8 +240,16 @@ test('a JSON file uploads into a new list, skipping only its bad rows', async ({
   await expect(status(page)).toContainText('No valid words in this file');
   expect(await listNames(page)).toEqual(before);
 
-  // Not a .json file.
+  // A .txt file holding the JSON (how an Android phone sends it) is read like a .json one.
+  await page.setInputFiles('#word-file', { name: 'farm.txt', mimeType: 'text/plain', buffer: Buffer.from(JSON.stringify({ name: 'farm', words: [['cow', 'פרה'], ['horse', 'סוס']] })) });
+  await expect(status(page)).toContainText('Added 2 words from farm.txt');
+  await expect(page.locator('#list-name')).toHaveValue('farm');
+
+  // A .txt file of plain text isn't a word list; other file types aren't read at all.
+  const withFarm = await listNames(page);
   await page.setInputFiles('#word-file', { name: 'words.txt', mimeType: 'text/plain', buffer: Buffer.from('dog,כלב\ncat,חתול') });
-  await expect(status(page)).toContainText('Choose a .json word list file');
-  expect(await listNames(page)).toEqual(before);
+  await expect(status(page)).toContainText('This is not a word list file');
+  await page.setInputFiles('#word-file', { name: 'words.csv', mimeType: 'text/csv', buffer: Buffer.from('dog,כלב\ncat,חתול') });
+  await expect(status(page)).toContainText('Choose a .json or .txt word list file');
+  expect(await listNames(page)).toEqual(withFarm);
 });
