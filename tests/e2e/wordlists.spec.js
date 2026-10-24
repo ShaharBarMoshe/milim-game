@@ -148,10 +148,10 @@ test('a Hebrew–Hebrew list takes Hebrew on both sides and plays in Hebrew', as
 // Word lists as JSON files, sent by WhatsApp or email as the file itself. Happy flows end to end; the
 // row-by-row error rules are unit-tested in tests/listFile.test.js, here only how the form reports them.
 const status = (page) => page.locator('#word-upload-status');
-const fileNameOf = (name) => `${name.trim().replace(/\s+/g, '-')}.json`; // listFileName, for plain names
+const fileNameOf = (name) => `${name.trim().replace(/\s+/g, '-')}.txt`; // listFileName, for plain names
 const jsonFile = (name, value) => ({ name, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(value), 'utf8') });
 
-test('WhatsApp and Email send the list as a JSON file through the share menu', async ({ page }) => {
+test('WhatsApp and Email send the list as a .txt file through the share menu', async ({ page }) => {
   const name = await page.locator('#list-name').inputValue();
   const words = await rows(page);
   // A device that can share files (a phone): record what the share menu gets.
@@ -168,25 +168,15 @@ test('WhatsApp and Email send the list as a JSON file through the share menu', a
     await page.locator(button).click();
     const shared = await (await page.waitForFunction(() => window.__shared)).jsonValue();
     expect(shared.files).toHaveLength(1);
-    expect(shared.files[0]).toMatchObject({ name: fileNameOf(name), type: 'application/json' });
+    expect(shared.files[0]).toMatchObject({ name: fileNameOf(name), type: 'text/plain' });
     const file = JSON.parse(shared.files[0].text);
     expect(file).toMatchObject({ app: 'milim', version: 1, name });
     expect(file.words.map((w) => [w.en, w.he])).toEqual(words);
-    expect(shared.text).toContain(fileNameOf(name));
-    expect(shared.text).not.toMatch(/https?:|#list=/);
+    // Only the file: WhatsApp on Android drops a file that comes with text.
+    expect(shared.text).toBeUndefined();
+    expect(shared.title).toBeUndefined();
     await expect(status(page)).toContainText(`Choose ${app} in the share menu`);
   }
-
-  // Chrome on Android shares only some kinds of file, not .json: the same list goes as .txt.
-  await page.evaluate(() => {
-    navigator.canShare = (data) => Boolean(data?.files?.length) && data.files.every((f) => f.type === 'text/plain' && f.name.endsWith('.txt'));
-    window.__shared = null;
-  });
-  await page.locator('#share-whatsapp').click();
-  const shared = await (await page.waitForFunction(() => window.__shared)).jsonValue();
-  expect(shared.files[0]).toMatchObject({ name: fileNameOf(name).replace(/\.json$/, '.txt'), type: 'text/plain' });
-  expect(JSON.parse(shared.files[0].text).words.map((w) => [w.en, w.he])).toEqual(words);
-  await expect(status(page)).toContainText(`to send ${fileNameOf(name).replace(/\.json$/, '.txt')}`);
 
   await page.locator('#share-close').click();
   await expect(page.locator('#word-share-panel')).toBeHidden();

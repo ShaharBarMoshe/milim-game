@@ -3,7 +3,7 @@
 // no separator to get wrong.
 import { DIRECTIONS } from '../quiz.js';
 import { KIND_LABELS, KINDS, MIN_PAIRS, WordLibrary } from '../wordLists.js';
-import { MAX_FILE_BYTES, fallbackShareUrl, listFileName, parseListFile, shareMessage, toListFile } from '../listFile.js';
+import { MAX_FILE_BYTES, fallbackShareUrl, listFileName, parseListFile, toListFile } from '../listFile.js';
 
 let root = null;
 
@@ -235,7 +235,7 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
     const chosen = file.files?.[0];
     file.value = ''; // so the same file can be chosen again
     if (!chosen) return;
-    // A list sent from an Android phone arrives as .txt (see send below); its text is the same JSON.
+    // Lists are shared as .txt (see listFileName); .json files, from before that, are read the same way.
     if (!/\.(json|txt)$/i.test(chosen.name)) {
       say('Choose a .json or .txt word list file', false);
       return;
@@ -280,7 +280,7 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
     const fileName = listFileName(listFile.name);
     const sharing = skipped.length ? `Sharing ${listFile.words.length} words${skippedText(skipped)}. ` : '';
     const download = () => {
-      const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+      const url = URL.createObjectURL(new Blob([json], { type: 'text/plain' }));
       const link = document.createElement('a');
       link.href = url;
       link.download = fileName;
@@ -289,26 +289,22 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
       link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     };
-    // The file for the share menu: .json, or the same text as .txt where the device only shares some
-    // kinds of file (Chrome on Android won't share .json); null when it can't share files at all.
+    // The file for the share menu, or null when the device can't share files.
     const shareableFile = () => {
-      const kinds = [[fileName, 'application/json'], [fileName.replace(/\.json$/, '.txt'), 'text/plain']];
-      for (const [shareName, type] of kinds) {
-        try {
-          const candidate = new File([json], shareName, { type });
-          if (navigator.canShare?.({ files: [candidate] })) return candidate;
-        } catch {
-          // no File constructor, or canShare refused it
-        }
+      try {
+        const candidate = new File([json], fileName, { type: 'text/plain' });
+        return navigator.canShare?.({ files: [candidate] }) ? candidate : null;
+      } catch {
+        return null; // no File constructor
       }
-      return null;
     };
     const send = async (app) => {
       const deviceFile = shareableFile();
       if (deviceFile) {
         say(`${sharing}Choose ${app === 'whatsapp' ? 'WhatsApp' : 'Mail'} in the share menu to send ${deviceFile.name}.`, true);
         try {
-          await navigator.share({ files: [deviceFile], title: `Milim word list: ${listFile.name}`, text: shareMessage(listFile, deviceFile.name) });
+          // The file alone: given text as well, WhatsApp on Android sends only the text and drops the file.
+          await navigator.share({ files: [deviceFile] });
           return;
         } catch (err) {
           if (err?.name === 'AbortError') return; // closed the share menu

@@ -30,14 +30,15 @@ export function toListFile(list) {
   return { ok: true, file: { app: 'milim', version: LIST_FILE_VERSION, name, kind, words }, skipped };
 }
 
-// A safe file name for a list: "Animals 2" -> "Animals-2.json". Hebrew letters are kept.
+// A safe file name for a list: "Animals 2" -> "Animals-2.txt". Hebrew letters are kept. The text inside is
+// JSON, but the file is .txt because Chrome on Android shares only some kinds of file and .json isn't one.
 export function listFileName(name) {
   const base = String(name ?? '')
     .trim()
     .replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/g, '-')
     .replace(/\s+/g, '-')
     .slice(0, 60);
-  return base ? `${base}.json` : 'word-list.json';
+  return base ? `${base}.txt` : 'word-list.txt';
 }
 
 // The two words of a row, from { en, he } or [en, he], or null when it isn't two strings.

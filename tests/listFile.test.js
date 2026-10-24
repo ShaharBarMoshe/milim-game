@@ -64,23 +64,23 @@ describe('toListFile() (export)', () => {
 
 describe('listFileName()', () => {
   it.each([
-    ['animals', 'animals.json'],
-    ['  my words  ', 'my-words.json'],
-    ['a/b\\c:d*e?f"g<h>i|j', 'a-b-c-d-e-f-g-h-i-j.json'],
-    ['הפכים', 'הפכים.json'],
-    ['', 'word-list.json'],
-    ['   ', 'word-list.json'],
+    ['animals', 'animals.txt'],
+    ['  my words  ', 'my-words.txt'],
+    ['a/b\\c:d*e?f"g<h>i|j', 'a-b-c-d-e-f-g-h-i-j.txt'],
+    ['הפכים', 'הפכים.txt'],
+    ['', 'word-list.txt'],
+    ['   ', 'word-list.txt'],
   ])('%j -> %j', (name, file) => {
     expect(listFileName(name)).toBe(file);
   });
 
   it('replaces control characters', () => {
-    expect(listFileName('a\u0001b')).toBe('a-b.json');
+    expect(listFileName('a\u0001b')).toBe('a-b.txt');
   });
 
-  it('keeps names to 60 characters before .json', () => {
+  it('keeps names to 60 characters before .txt', () => {
     const file = listFileName('w'.repeat(100));
-    expect(file).toBe(`${'w'.repeat(60)}.json`);
+    expect(file).toBe(`${'w'.repeat(60)}.txt`);
   });
 });
 
@@ -196,26 +196,26 @@ describe('sharing the file', () => {
   const { file } = toListFile(ANIMALS);
 
   it('writes a message that names the list, its size and the attached file, with no link', () => {
-    const message = shareMessage(file, 'animals.json');
-    expect(message).toBe('Milim word list "animals" (3 words) is in the attached file animals.json. Open the game, choose 📂 Upload list and pick the file.');
+    const message = shareMessage(file, 'animals.txt');
+    expect(message).toBe('Milim word list "animals" (3 words) is in the attached file animals.txt. Open the game, choose 📂 Upload list and pick the file.');
     expect(message).not.toMatch(/https?:|#list=/);
   });
 
   it('opens WhatsApp with the message where the browser cannot share files', () => {
-    const url = fallbackShareUrl('whatsapp', file, 'animals.json');
+    const url = fallbackShareUrl('whatsapp', file, 'animals.txt');
     expect(url.startsWith('https://wa.me/?text=')).toBe(true);
-    expect(decodeURIComponent(url.slice('https://wa.me/?text='.length))).toBe(shareMessage(file, 'animals.json'));
+    expect(decodeURIComponent(url.slice('https://wa.me/?text='.length))).toBe(shareMessage(file, 'animals.txt'));
   });
 
   it('opens an email with the list name as subject and the message as body', () => {
-    const url = new URL(fallbackShareUrl('email', file, 'animals.json'));
+    const url = new URL(fallbackShareUrl('email', file, 'animals.txt'));
     expect(url.protocol).toBe('mailto:');
     expect(url.searchParams.get('subject')).toBe('Milim word list: animals');
-    expect(url.searchParams.get('body')).toBe(shareMessage(file, 'animals.json'));
+    expect(url.searchParams.get('body')).toBe(shareMessage(file, 'animals.txt'));
   });
 
   it('keeps Hebrew names readable', () => {
     const { file: hebrew } = toListFile(OPPOSITES);
-    expect(new URL(fallbackShareUrl('email', hebrew, 'הפכים.json')).searchParams.get('subject')).toBe('Milim word list: הפכים');
+    expect(new URL(fallbackShareUrl('email', hebrew, 'הפכים.txt')).searchParams.get('subject')).toBe('Milim word list: הפכים');
   });
 });
