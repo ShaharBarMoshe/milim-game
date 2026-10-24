@@ -4,6 +4,7 @@ import { sfx } from '../sound.js';
 import { voice } from '../speech.js';
 import { Shop } from '../shop.js';
 import { showPerks } from './perks.js';
+import { PLAYER_SPRITES } from '../players.js';
 import { shuffle } from '../quiz.js';
 import { SAMPLE_PAIRS } from '../vocab.js';
 import { SpellingRun, pickSpellingPairs, typedLetter } from '../spelling.js';
@@ -58,7 +59,15 @@ export default class LavaScene extends Phaser.Scene {
     this.drawBackground();
     this.lava = this.add.graphics().setDepth(30).setScrollFactor(0);
     this.highlight = this.add.graphics().setDepth(16);
-    this.robot = this.add.sprite(0, 0, 'robot', ROBOT_FRAMES.ready).setOrigin(0.5, 1).setScale(ROBOT_SCALE).setDepth(20);
+    // A player bought in the shop jumps in place of the robot (same frames).
+    const player = this.shop.skin('player');
+    const look = player && PLAYER_SPRITES[player.sprite];
+    this.waist = look ? look.jumper.waist : ROBOT_WAIST;
+    this.robot = this.add
+      .sprite(0, 0, look ? `${player.sprite}_jumper` : 'robot', ROBOT_FRAMES.ready)
+      .setOrigin(0.5, 1)
+      .setScale(ROBOT_SCALE)
+      .setDepth(20);
     const skin = this.shop.skin('robot');
     if (skin) this.robot.setTint(skin.tint);
     this.rope = this.add.graphics().setDepth(21); // in front of the robot, so the waist loop shows
@@ -109,7 +118,7 @@ export default class LavaScene extends Phaser.Scene {
   // Badges for everything from the shop that's on in this game (the rope with how many are left).
   showPerkBar() {
     this.perkBar?.destroy();
-    this.perkBar = showPerks(this, [this.ropes() && ['lava-rope', this.ropes()], this.extraLife && 'lava-life', this.shop.skin('robot')?.id], {
+    this.perkBar = showPerks(this, [this.ropes() && ['lava-rope', this.ropes()], this.extraLife && 'lava-life', this.shop.skin('robot')?.id, this.shop.skin('player')?.id], {
       right: W - 24, top: 62,
     });
   }
@@ -356,7 +365,7 @@ export default class LavaScene extends Phaser.Scene {
     if (!this.ropeFrom || !this.robot.visible) return;
     const { x: ax, y: ay } = this.ropeFrom;
     const bx = this.robot.x;
-    const by = this.robot.y - ROBOT_WAIST;
+    const by = this.robot.y - this.waist;
     // Slack while flying, straight once the robot hangs on it.
     const sag = this.ropeSlack * Math.min(70, Math.hypot(bx - ax, by - ay) * 0.3);
     const curve = new Phaser.Curves.QuadraticBezier(

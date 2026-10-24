@@ -5,9 +5,12 @@
   "type": "module",
   "scripts": {
     "sprites": "python3 -I tools/slice_sprites.py",
+    "kids": "python3 -I tools/draw_kids.py",
+    "characters": "python3 -I tools/slice_characters.py",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "deploy": "vite build && npx wrangler pages deploy dist --project-name milim-game",
     "test": "vitest run",
     "test:e2e": "PW_DISABLE_TS_ESM=1 playwright test"
   },

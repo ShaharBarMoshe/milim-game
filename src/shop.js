@@ -13,15 +13,25 @@ export const ITEMS = [
   { id: 'balloons-fire', game: 'balloons', kind: 'upgrade', name: 'Fire arrows', short: 'Fire', about: 'Blazing orange arrows, for good', cost: 15, icon: 'arrow' },
   { id: 'archer-gold', game: 'balloons', kind: 'skin', slot: 'archer', name: 'Golden archer', short: 'Gold', about: 'A rider dipped in gold', cost: 25, icon: 'hunter', tint: 0xffd166 },
   { id: 'archer-night', game: 'balloons', kind: 'skin', slot: 'archer', name: 'Night rider', short: 'Night', about: 'Dark as a moonless night', cost: 20, icon: 'hunter', tint: 0x7b8cde },
-  { id: 'lava-rope', game: 'lava', kind: 'single', name: 'Safety rope', short: 'Rope', about: 'Catches you once: on a wrong letter you hang over the lava and keep your life', cost: 10, icon: 'rope', lasts: 'one save' },
+  { id: 'lava-rope', game: 'lava', kind: 'single', name: 'Safety rope', short: 'Rope', about: 'Catches you once: keep your life on a wrong letter', cost: 10, icon: 'rope', lasts: 'one save' },
   { id: 'lava-life', game: 'lava', kind: 'single', name: 'Extra life', short: '+1 life', about: '4 lives instead of 3 for one game', cost: 15, icon: 'heart', lasts: 'one game' },
   { id: 'robot-gold', game: 'lava', kind: 'skin', slot: 'robot', name: 'Gold robot', short: 'Gold', about: 'Shiny and fireproof-looking', cost: 25, icon: 'robot', tint: 0xffc94d },
   { id: 'robot-ice', game: 'lava', kind: 'skin', slot: 'robot', name: 'Ice robot', short: 'Ice', about: 'Cool under pressure', cost: 20, icon: 'robot', tint: 0x8fd3ff },
+  // Players replace the horse archer and the robot in both games.
+  // `sprite` names the player's sheets (src/players.js).
+  { id: 'player-girl', game: 'players', kind: 'skin', slot: 'player', name: 'Girl', short: 'Girl', about: 'Runs and shoots arrows', cost: 40, icon: 'player', sprite: 'kid_girl' },
+  { id: 'player-boy', game: 'players', kind: 'skin', slot: 'player', name: 'Boy', short: 'Boy', about: 'Runs and shoots arrows', cost: 40, icon: 'player', sprite: 'kid_boy' },
+  { id: 'player-axe-boy', game: 'players', kind: 'skin', slot: 'player', name: 'Axe warrior', short: 'Warrior', about: 'Throws a spinning axe', cost: 50, icon: 'player', sprite: 'char_axe-boy' },
+  { id: 'player-axe-scout', game: 'players', kind: 'skin', slot: 'player', name: 'Axe scout', short: 'Scout', about: 'Throws a spinning axe', cost: 50, icon: 'player', sprite: 'char_axe-scout' },
+  { id: 'player-axe-girl', game: 'players', kind: 'skin', slot: 'player', name: 'Axe girl', short: 'Axe girl', about: 'Throws a spinning axe', cost: 50, icon: 'player', sprite: 'char_axe-girl' },
+  { id: 'player-shadow-mage', game: 'players', kind: 'skin', slot: 'player', name: 'Shadow mage', short: 'Shadow', about: 'Casts purple magic orbs', cost: 70, icon: 'player', sprite: 'char_shadow-mage' },
+  { id: 'player-frost-mage', game: 'players', kind: 'skin', slot: 'player', name: 'Frost mage', short: 'Frost', about: 'Casts glowing frost orbs', cost: 70, icon: 'player', sprite: 'char_frost-mage' },
 ];
 
 export const GAMES = [
   { id: 'balloons', name: 'Balloon Meadow' },
   { id: 'lava', name: 'Lava Crossing' },
+  { id: 'players', name: 'Players' },
 ];
 
 export const item = (id) => ITEMS.find((i) => i.id === id) ?? null;

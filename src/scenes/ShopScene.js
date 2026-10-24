@@ -7,10 +7,11 @@ import { sfx } from '../sound.js';
 import { FONT, INK, W, H, drawParchment } from './parchment.js';
 
 const CARD_W = 172;
-const CARD_H = 228;
+const GRID_W = 5 * CARD_W + 4 * 16; // a row of more than five cards shares this width
+const CARD_H = 172;
 const CARD_GAP = 16;
 const GRID_LEFT = 300; // left edge of the first card; the game names sit to its left
-const ROW_TOP = [150, 420];
+const ROW_TOP = [118, 304, 490];
 const FIRE_TINT = 0xff7a1a;
 
 export default class ShopScene extends Phaser.Scene {
@@ -47,8 +48,10 @@ export default class ShopScene extends Phaser.Scene {
       this.add.text(GRID_LEFT - 30, top + CARD_H / 2, game.name.replace(' ', '\n'), {
         fontFamily: FONT, fontSize: '26px', fontStyle: 'bold', color: '#3b1f08', align: 'right', lineSpacing: 4,
       }).setOrigin(1, 0.5);
-      ITEMS.filter((it) => it.game === game.id).forEach((it, col) => {
-        this.createCard(it, GRID_LEFT + col * (CARD_W + CARD_GAP) + CARD_W / 2, top + CARD_H / 2);
+      const items = ITEMS.filter((it) => it.game === game.id);
+      const cardW = Math.min(CARD_W, Math.floor((GRID_W - (items.length - 1) * CARD_GAP) / items.length));
+      items.forEach((it, col) => {
+        this.createCard(it, GRID_LEFT + col * (cardW + CARD_GAP) + cardW / 2, top + CARD_H / 2, cardW);
       });
     });
     this.refresh();
@@ -58,23 +61,27 @@ export default class ShopScene extends Phaser.Scene {
 
   // ---------------------------------------------------------------- cards
 
-  createCard(it, x, y) {
+  createCard(it, x, y, cardW = CARD_W) {
     const c = this.add.container(x, y).setDepth(5);
-    const bg = this.add.rectangle(0, 0, CARD_W, CARD_H, 0xf5e6c0, 0.95).setStrokeStyle(3, INK);
-    const icon = this.makeIcon(it, 0, -52);
-    const name = this.add.text(0, 14, it.name, { fontFamily: FONT, fontSize: '19px', fontStyle: 'bold', color: '#3b1f08' }).setOrigin(0.5);
-    const about = this.add.text(0, 50, it.about, {
-      fontFamily: FONT, fontSize: '13px', color: '#5b3510', align: 'center', wordWrap: { width: CARD_W - 18 },
+    const bg = this.add.rectangle(0, 0, cardW, CARD_H, 0xf5e6c0, 0.95).setStrokeStyle(3, INK);
+    const icon = this.makeIcon(it, 0, -44);
+    const name = this.add.text(0, 4, it.name, {
+      fontFamily: FONT, fontSize: cardW < CARD_W ? '15px' : '18px', fontStyle: 'bold', color: '#3b1f08',
     }).setOrigin(0.5);
-    const badge = this.add.text(0, CARD_H / 2 - 22, '', {
+    const about = this.add.text(0, 32, it.about, {
+      fontFamily: FONT, fontSize: '12px', color: '#5b3510', align: 'center', wordWrap: { width: cardW - 14 },
+    }).setOrigin(0.5);
+    const badge = this.add.text(0, CARD_H / 2 - 17, '', {
       fontFamily: FONT, fontSize: '17px', fontStyle: 'bold', color: '#fef3c7', backgroundColor: '#9a3412', padding: { x: 10, y: 5 },
     }).setOrigin(0.5);
-    // Single-use items: how many are waiting to be used.
-    const stock = this.add.text(CARD_W / 2 - 8, -CARD_H / 2 + 8, '', {
-      fontFamily: FONT, fontSize: '15px', fontStyle: 'bold', color: '#fef3c7', backgroundColor: '#1e3a5f', padding: { x: 7, y: 3 },
-    }).setOrigin(1, 0);
+    // Single-use items: how many are waiting to be used, beside the price.
+    const single = it.kind === 'single';
+    if (single) badge.setX(-38);
+    const stock = this.add.text(40, CARD_H / 2 - 17, '', {
+      fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: '#fef3c7', backgroundColor: '#1e3a5f', padding: { x: 6, y: 4 },
+    }).setOrigin(0.5);
     c.add([bg, icon, name, about, badge, stock]);
-    c.setSize(CARD_W, CARD_H).setInteractive({ useHandCursor: true });
+    c.setSize(cardW, CARD_H).setInteractive({ useHandCursor: true });
     c.on('pointerover', () => {
       if (this.dialog) return;
       bg.setStrokeStyle(5, 0xd97706);
@@ -92,20 +99,22 @@ export default class ShopScene extends Phaser.Scene {
     switch (it.icon) {
       case 'clock': {
         const g = this.add.graphics({ x, y });
-        g.fillStyle(0xfff7ed).fillCircle(0, 0, 34).lineStyle(5, INK).strokeCircle(0, 0, 34);
-        g.lineStyle(5, 0x9a3412).lineBetween(0, 0, 0, -22).lineBetween(0, 0, 16, 8);
+        g.fillStyle(0xfff7ed).fillCircle(0, 0, 27).lineStyle(4, INK).strokeCircle(0, 0, 27);
+        g.lineStyle(4, 0x9a3412).lineBetween(0, 0, 0, -18).lineBetween(0, 0, 13, 6);
         return g;
       }
       case 'balloon':
-        return this.add.image(x, y, 'balloon_blue').setScale(0.42);
+        return this.add.image(x, y, 'balloon_blue').setScale(0.34);
       case 'arrow':
         return this.add.image(x, y, 'arrow').setScale(0.55).setRotation(-0.5).setTint(FIRE_TINT);
       case 'hunter':
-        return this.add.sprite(x, y + 40, 'hunter', 0).setOrigin(0.5, 1).setScale(0.36).setTint(it.tint);
+        return this.add.sprite(x, y + 32, 'hunter', 0).setOrigin(0.5, 1).setScale(0.27).setTint(it.tint);
+      case 'player':
+        return this.add.sprite(x, y + 32, `${it.sprite}_jumper`, ROBOT_FRAMES.front).setOrigin(0.5, 1).setScale(0.55);
       case 'robot':
-        return this.add.sprite(x, y + 30, 'robot', ROBOT_FRAMES.front).setOrigin(0.5, 1).setScale(0.55).setTint(it.tint);
+        return this.add.sprite(x, y + 26, 'robot', ROBOT_FRAMES.front).setOrigin(0.5, 1).setScale(0.46).setTint(it.tint);
       case 'heart':
-        return this.add.text(x, y, '❤', { fontSize: '62px', color: '#e11d48' }).setOrigin(0.5);
+        return this.add.text(x, y, '❤', { fontSize: '50px', color: '#e11d48' }).setOrigin(0.5);
       case 'rope': {
         // A coil of rope with its end hanging down.
         const g = this.add.graphics({ x, y });
@@ -128,7 +137,7 @@ export default class ShopScene extends Phaser.Scene {
     for (const card of Object.values(this.cards)) {
       const { item: it, badge, bg, stock } = card;
       const left = this.shop.count(it.id);
-      stock.setText(it.kind === 'single' ? `You have ${left}` : '').setVisible(it.kind === 'single');
+      stock.setText(it.kind === 'single' ? `Have ${left}` : '').setVisible(it.kind === 'single');
       stock.setBackgroundColor(left ? '#15803d' : '#1e3a5f');
       if (it.kind === 'skin' && this.shop.owns(it.id)) {
         const worn = this.shop.has(it.id);

@@ -38,7 +38,7 @@ test('the map shop sells the lava rope for 10 points, and it saves the robot onc
   // No rope by default: a wrong letter drops the robot into the lava.
   await clickMapSpot(page, 'shop');
   await page.waitForFunction(() => window.game.scene.isActive('shop') && window.game.scene.getScene('shop').cards);
-  expect(await shop(page)).toMatchObject({ points: 25, rope: 'You have 0', dialog: null });
+  expect(await shop(page)).toMatchObject({ points: 25, rope: 'Have 0', dialog: null });
 
   // Choose the rope: a dialog asks to confirm; Cancel spends nothing.
   const card = await page.evaluate(() => { const c = window.game.scene.getScene('shop').cards['lava-rope']; return { x: c.x, y: c.y }; });
@@ -54,7 +54,7 @@ test('the map shop sells the lava rope for 10 points, and it saves the robot onc
   await expect.poll(async () => (await shop(page)).dialog).toBe('lava-rope');
   b = await dialogButton(page, 'Buy');
   await clickAt(page, b.x, b.y);
-  await expect.poll(async () => shop(page)).toMatchObject({ points: 15, rope: 'You have 1', dialog: null });
+  await expect.poll(async () => shop(page)).toMatchObject({ points: 15, rope: 'Have 1', dialog: null });
   await expect.poll(() => page.evaluate(() => window.game.scene.getScene('shop').pointsText.text)).toBe('🪙 15 points');
 
   // Back on the map the total is the same, and a wrong jump in the lava level now hangs on the rope.
@@ -107,4 +107,50 @@ test('without the rope a wrong letter drops the robot in the lava, and it comes 
   await page.waitForFunction(() => window.game.scene.getScene('lava').state === 'playing', null, { timeout: 30_000 });
   const after = await page.evaluate(() => { const s = window.game.scene.getScene('lava'); return { x: s.robot.x, lives: s.lives }; });
   expect(after).toEqual({ x: start.x, lives: start.lives - 1 });
+});
+
+test('a girl or boy player from the shop replaces the archer and the robot', async ({ page }) => {
+  await page.evaluate(() =>
+    localStorage.setItem('balloon-archer-shop', JSON.stringify({ points: 0, owned: ['player-girl', 'player-boy'], worn: { player: 'player-girl' } })));
+  await page.reload();
+  await page.locator('#word-start').click();
+  await clickMapSpot(page, 'balloons');
+  await page.waitForFunction(() => window.game.scene.getScene('game')?.state === 'playing', null, { timeout: 30_000 });
+  expect(await page.evaluate(() => window.game.scene.getScene('game').archer.texture.key)).toBe('kid_girl_archer');
+  expect(await page.evaluate(() => window.game.scene.getScene('game').perkBar?.perkIds)).toContain('player-girl');
+
+  await page.evaluate(() => {
+    const data = JSON.parse(localStorage.getItem('balloon-archer-shop'));
+    data.worn = { player: 'player-boy' };
+    localStorage.setItem('balloon-archer-shop', JSON.stringify(data));
+  });
+  await page.keyboard.press('Escape');
+  await clickMapSpot(page, 'lava');
+  await page.waitForFunction(() => window.game.scene.getScene('lava')?.state === 'playing', null, { timeout: 30_000 });
+  expect(await page.evaluate(() => window.game.scene.getScene('lava').robot.texture.key)).toBe('kid_boy_jumper');
+});
+
+test('a Gemini character throws its own projectile in the balloon game', async ({ page }) => {
+  await page.evaluate(() =>
+    localStorage.setItem('balloon-archer-shop', JSON.stringify({ points: 0, owned: ['player-axe-girl'], worn: { player: 'player-axe-girl' } })));
+  await page.reload();
+  await page.locator('#word-start').click();
+  await clickMapSpot(page, 'balloons');
+  await page.waitForFunction(() => window.game.scene.getScene('game')?.state === 'playing' && window.game.scene.getScene('game').balloons.some((b) => b.isAnswer), null, { timeout: 30_000 });
+  expect(await page.evaluate(() => window.game.scene.getScene('game').archer.texture.key)).toBe('char_axe-girl_archer');
+  const thrown = await page.evaluate(() => {
+    const g = window.game.scene.getScene('game');
+    window.target = g.balloons.find((b) => b.isAnswer);
+    g.fireArrow(window.target, true);
+    window.axe = g.arrows.at(-1);
+    return window.axe.texture.key;
+  });
+  expect(thrown).toBe('proj_axe');
+  // The hit pops the balloon without the arrow-drawn pop animation, and the axe flies on.
+  await page.waitForFunction(() => !window.target.active, null, { timeout: 30_000 });
+  const after = await page.evaluate(() => {
+    const g = window.game.scene.getScene('game');
+    return { pops: g.children.list.filter((o) => o.texture?.key?.startsWith('pop_')).length, axe: window.axe.active && window.axe.visible };
+  });
+  expect(after).toEqual({ pops: 0, axe: true });
 });

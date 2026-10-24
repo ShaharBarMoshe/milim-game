@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { GAMES, ITEMS, SHOP_KEY, Shop, item } from '../src/shop.js';
 import { memoryStorage, throwingStorage } from './helpers.js';
+import { PLAYER_SPRITES, PROJECTILES } from '../src/players.js';
 
 const saved = (storage) => JSON.parse(storage.getItem(SHOP_KEY));
 
@@ -19,8 +20,28 @@ describe('the catalogue', () => {
     expect(item('lava-rope')).toMatchObject({ game: 'lava', kind: 'single', cost: 10 });
   });
 
+  it('sells players (the girl, the boy and five Gemini characters), worn one at a time, for both games', () => {
+    const players = ITEMS.filter((i) => i.game === 'players');
+    expect(players.length).toBe(7);
+    for (const p of players) {
+      expect(p).toMatchObject({ kind: 'skin', slot: 'player' });
+      const look = PLAYER_SPRITES[p.sprite];
+      expect(look).toBeTruthy();
+      expect(PROJECTILES[look.projectile]).toBeTruthy();
+      expect(look.archer.hand.y).toBeGreaterThan(0);
+      expect(look.jumper.waist).toBeGreaterThan(0);
+    }
+    const shop = new Shop(memoryStorage());
+    shop.earn(200);
+    shop.buy('player-girl');
+    shop.buy('player-frost-mage');
+    expect(shop.skin('player').sprite).toBe('char_frost-mage');
+    shop.toggleSkin('player-girl');
+    expect(shop.skin('player').sprite).toBe('kid_girl');
+  });
+
   it('has single-use items and permanent ones for both games', () => {
-    for (const game of GAMES) {
+    for (const game of GAMES.filter((g) => g.id !== 'players')) {
       const kinds = new Set(ITEMS.filter((i) => i.game === game.id).map((i) => i.kind));
       expect(kinds.has('single')).toBe(true);
       expect(kinds.has('skin')).toBe(true);

@@ -8,6 +8,7 @@ import { currentWords } from './MapScene.js';
 import { spellingTarget, successRate } from '../spelling.js';
 import { Shop } from '../shop.js';
 import { showPerks } from './perks.js';
+import { PLAYER_SPRITES, PROJECTILES } from '../players.js';
 
 const W = 1280;
 const H = 720;
@@ -22,7 +23,6 @@ const GALLOP_FPS = 10;
 // Bow hand in the hunter frames, relative to the sprite's bottom-centre origin (unscaled px).
 const BOW_HAND = { x: 46, y: 187 };
 
-const ARROW_SCALE = 0.48;
 const ARROW_SPEED = 1100;
 const GRAVITY = 650;
 const RELOAD_MS = 520;
@@ -151,8 +151,14 @@ export default class GameScene extends Phaser.Scene {
   }
 
   createArcher() {
+    // A player bought in the shop runs on foot in place of the horse archer, and may throw an axe or
+    // magic instead of arrows.
+    const player = this.shop.skin('player');
+    const look = player && PLAYER_SPRITES[player.sprite];
+    this.bowHand = look ? look.archer.hand : BOW_HAND;
+    this.projectile = PROJECTILES[look?.projectile ?? 'arrow'];
     this.archer = this.add
-      .sprite(200, GROUND_Y + 4, 'hunter', ARCHER_FRAMES.gallopLevel[0])
+      .sprite(200, GROUND_Y + 4, look ? `${player.sprite}_archer` : 'hunter', ARCHER_FRAMES.gallopLevel[0])
       .setOrigin(0.5, 1)
       .setScale(ARCHER_SCALE)
       .setDepth(32);
@@ -224,6 +230,7 @@ export default class GameScene extends Phaser.Scene {
       this.boosts.slow && 'balloons-slow',
       this.shop.has('balloons-fire') && 'balloons-fire',
       this.shop.skin('archer')?.id,
+      this.shop.skin('player')?.id,
     ], { right: W - 24, top: 62 });
     this.setWind(Phaser.Math.Between(-MAX_WIND / 2, MAX_WIND / 2));
 
@@ -526,28 +533,47 @@ export default class GameScene extends Phaser.Scene {
     if (index >= 0) this.balloons.splice(index, 1);
     balloon.destroy();
     sfx.pop();
-
-    // Sprite-sheet pop, aligned with the arrow's flight direction.
-    const pop = this.add
-      .sprite(body.x, body.y, `pop_${balloon.color}`)
-      .setOrigin(POP_ORIGIN.x, POP_ORIGIN.y)
-      .setScale(balloon.balloonScale)
-      .setRotation(arrow.rotation)
-      .setDepth(36);
-    pop.play(`pop_${balloon.color}`);
-    pop.on('animationcomplete', () =>
-      this.tweens.add({ targets: pop, alpha: 0, duration: 180, onComplete: () => pop.destroy() }),
-    );
-    // The pop frames already show the arrow piercing the balloon; hide the real one meanwhile.
-    arrow.setVisible(false);
-    this.time.delayedCall(170, () => arrow.active && arrow.setVisible(true));
-
     this.sparks.setParticleTint(BALLOON_COLORS[balloon.color]);
-    this.sparks.explode(18, body.x, body.y);
+
+    if (arrow.texture.key === 'arrow') {
+      // Sprite-sheet pop, aligned with the arrow's flight direction.
+      const pop = this.add
+        .sprite(body.x, body.y, `pop_${balloon.color}`)
+        .setOrigin(POP_ORIGIN.x, POP_ORIGIN.y)
+        .setScale(balloon.balloonScale)
+        .setRotation(arrow.heading ?? arrow.rotation)
+        .setDepth(36);
+      pop.play(`pop_${balloon.color}`);
+      pop.on('animationcomplete', () =>
+        this.tweens.add({ targets: pop, alpha: 0, duration: 180, onComplete: () => pop.destroy() }),
+      );
+      // The pop frames already show the arrow piercing the balloon; hide the real one meanwhile.
+      arrow.setVisible(false);
+      this.time.delayedCall(170, () => arrow.active && arrow.setVisible(true));
+      this.sparks.explode(18, body.x, body.y);
+    } else {
+      this.burstBalloon(balloon, body, arrow);
+    }
     this.floatText(body.x, body.y - 20, `+${balloon.award}`, '#ffffff');
 
     const id = this.waveId;
     this.time.delayedCall(NEXT_QUESTION_MS, () => id === this.waveId && this.nextQuestion());
+  }
+
+  // A pop with no arrow in it, for a thrown axe or a magic orb (the pop sprite sheets have the arrow
+  // drawn in): the balloon swells and vanishes in a burst of shreds. An axe flies on; an orb bursts too.
+  burstBalloon(balloon, body, projectile) {
+    const ghost = this.add.image(body.x, body.y - BALLOON_BODY_OFFSET_Y * balloon.balloonScale, `balloon_${balloon.color}`)
+      .setScale(balloon.balloonScale)
+      .setDepth(36);
+    this.tweens.add({ targets: ghost, scale: balloon.balloonScale * 1.35, alpha: 0, duration: 140, ease: 'Quad.easeOut', onComplete: () => ghost.destroy() });
+    this.sparks.explode(32, body.x, body.y);
+    if (projectile.texture.key.startsWith('proj_orb')) {
+      const glow = projectile.texture.key === 'proj_orb_teal' ? 0x2dd4bf : 0xb06cff;
+      const flash = this.add.circle(body.x, body.y, body.r, glow, 0.7).setDepth(37);
+      this.tweens.add({ targets: flash, scale: 2.2, alpha: 0, duration: 260, onComplete: () => flash.destroy() });
+      projectile.destroy();
+    }
   }
 
   // Say which single-use shop items this round uses, and how many are left.
@@ -575,8 +601,8 @@ export default class GameScene extends Phaser.Scene {
   launchPoint() {
     const facing = this.archer.flipX ? -1 : 1;
     return new Phaser.Math.Vector2(
-      this.archer.x + facing * BOW_HAND.x * ARCHER_SCALE,
-      this.archer.y - BOW_HAND.y * ARCHER_SCALE,
+      this.archer.x + facing * this.bowHand.x * ARCHER_SCALE,
+      this.archer.y - this.bowHand.y * ARCHER_SCALE,
     );
   }
 
@@ -652,9 +678,11 @@ export default class GameScene extends Phaser.Scene {
     this.archer.setFlipX(target.x < this.archer.x);
     const origin = this.launchPoint();
     const body = this.balloonBody(target);
-    const arrow = this.add.image(origin.x, origin.y, 'arrow').setScale(ARROW_SCALE).setDepth(35);
+    const { texture, scale, spin } = this.projectile;
+    const arrow = this.add.image(origin.x, origin.y, texture).setScale(scale).setDepth(35);
     if (this.shop.has('balloons-fire')) arrow.setTint(FIRE_TINT);
-    arrow.halfLength = (arrow.width / 2) * ARROW_SCALE;
+    arrow.halfLength = (arrow.width / 2) * scale;
+    arrow.spin = spin; // an axe tumbles; `heading` keeps the flight direction for hits and pops
     arrow.age = 0;
     arrow.stuck = false;
     arrow.target = target;
@@ -674,6 +702,7 @@ export default class GameScene extends Phaser.Scene {
     }
     arrow.vx = Math.cos(angle) * ARROW_SPEED;
     arrow.vy = Math.sin(angle) * ARROW_SPEED;
+    arrow.heading = angle;
     arrow.setRotation(angle);
     this.arrows.push(arrow);
     sfx.shoot();
@@ -706,9 +735,9 @@ export default class GameScene extends Phaser.Scene {
           ({ vx: arrow.vx, vy: arrow.vy } = steer(arrow.vx, arrow.vy, arrow.x, arrow.y, body.x, body.y, ARROW_SPEED, turn, dt));
           arrow.x += arrow.vx * dt;
           arrow.y += arrow.vy * dt;
-          arrow.rotation = Math.atan2(arrow.vy, arrow.vx);
-          const tipX = arrow.x + Math.cos(arrow.rotation) * arrow.halfLength;
-          const tipY = arrow.y + Math.sin(arrow.rotation) * arrow.halfLength;
+          this.turnArrow(arrow, dt);
+          const tipX = arrow.x + Math.cos(arrow.heading) * arrow.halfLength;
+          const tipY = arrow.y + Math.sin(arrow.heading) * arrow.halfLength;
           const close = Phaser.Math.Distance.Between(tipX, tipY, body.x, body.y) < body.r + 4 ||
             Phaser.Math.Distance.Between(arrow.x, arrow.y, body.x, body.y) < body.r;
           if (close || arrow.age > HOMING_MAX_S) {
@@ -729,8 +758,8 @@ export default class GameScene extends Phaser.Scene {
       }
       arrow.x += arrow.vx * dt;
       arrow.y += arrow.vy * dt;
-      arrow.rotation = Math.atan2(arrow.vy, arrow.vx);
-      const tipY = arrow.y + Math.sin(arrow.rotation) * arrow.halfLength;
+      this.turnArrow(arrow, dt);
+      const tipY = arrow.y + Math.sin(arrow.heading) * arrow.halfLength;
 
       if (tipY >= GROUND_Y + 14) {
         arrow.stuck = true;
@@ -742,6 +771,12 @@ export default class GameScene extends Phaser.Scene {
       }
     }
     this.arrows = this.arrows.filter((a) => a.active && !a.stuck);
+  }
+
+  // Point an arrow along its flight; a thrown axe spins instead.
+  turnArrow(arrow, dt) {
+    arrow.heading = Math.atan2(arrow.vy, arrow.vx);
+    arrow.rotation = arrow.spin ? arrow.rotation + arrow.spin * dt : arrow.heading;
   }
 
   // ---------------------------------------------------------------- loop

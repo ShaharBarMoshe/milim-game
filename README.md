@@ -68,6 +68,9 @@ them again.
 | Lava Crossing | Safety rope (catches you once; you keep your life) | one save | 10 |
 | | Extra life (4 instead of 3) | one game | 15 |
 | | Gold robot / Ice robot | skin | 25 / 20 |
+| Players | Girl / Boy (run and shoot arrows) | skin | 40 / 40 |
+| | Axe warrior / Axe scout / Axe girl (throw a spinning axe) | skin | 50 each |
+| | Shadow mage / Frost mage (cast magic orbs) | skin | 70 each |
 
 During a game, badges at the top right show every shop item it has on (green border: used up this game; gold: permanent).
 
@@ -92,6 +95,8 @@ Open it from **Lava Crossing** on the map or the balloon end screen's **Lava lev
 
 ## Code
 
+- `tools/slice_characters.py` (`npm run characters`): cuts the five Gemini characters out of `gemini-pics/` (removing the black or white background, grid lines and boxes) and packs their walk, aim, throw, hurt and front poses into the same frame layouts. `src/players.js` lists every player's sheets, throwing hand, rope tie point and projectile.
+- `tools/draw_kids.py` (`npm run kids`): draws the girl and boy players as sprite sheets in the same frame layouts as `hunter.png` and `robot.png`.
 - `src/scenes/MapScene.js`: the word list screen and the adventure map (drawn in Phaser, styled after `fantasy_rpg_adventure_map.html`).
 - `src/vocab.js`: sample pairs, and the old one-text-box word list format (read once to move it into a list).
 - `src/wordLists.js`: ready-made lists, `checkPair` validation and `WordLibrary` (create, rename, lock, delete lists; add, edit, remove pairs; saved in localStorage, never throws).

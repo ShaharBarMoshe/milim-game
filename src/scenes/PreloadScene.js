@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { SAMPLE_PAIRS } from '../vocab.js';
 import { DIRECTIONS } from '../quiz.js';
 import { MIN_PAIRS, WordLibrary } from '../wordLists.js';
+import { PLAYER_SPRITES } from '../players.js';
 
 export const BALLOON_COLORS = {
   red: 0xe8343c,
@@ -56,6 +57,11 @@ export default class PreloadScene extends Phaser.Scene {
     this.load.image('arrow', 'assets/arrow.png');
     this.load.spritesheet('robot', 'assets/robot.png', { frameWidth: 247, frameHeight: 127 });
     this.load.image('lava_splash', 'assets/lava_splash.png');
+    // The players from the shop, in the same frame layouts as hunter.png and robot.png.
+    for (const [sprite, { archer, jumper }] of Object.entries(PLAYER_SPRITES)) {
+      this.load.spritesheet(`${sprite}_archer`, `assets/${sprite}_archer.png`, { frameWidth: archer.w, frameHeight: archer.h });
+      this.load.spritesheet(`${sprite}_jumper`, `assets/${sprite}_jumper.png`, { frameWidth: jumper.w, frameHeight: jumper.h });
+    }
     for (const color of Object.keys(BALLOON_COLORS)) {
       this.load.image(`balloon_${color}`, `assets/balloon_${color}.png`);
       this.load.spritesheet(`pop_${color}`, `assets/pop_${color}.png`, { frameWidth: 186, frameHeight: 236 });
@@ -95,6 +101,25 @@ export default class PreloadScene extends Phaser.Scene {
       g.fillCircle(x, y, r),
     );
     g.generateTexture('cloud', 190, 100);
+    g.clear();
+
+    // What the shop's players throw instead of arrows: a double-bladed axe (spun in flight) and magic orbs.
+    g.fillStyle(0x6b4423).fillRect(25, 10, 6, 44);
+    g.lineStyle(3, 0x3b2410);
+    for (const side of [-1, 1]) {
+      const blade = [[28, 8], [28 + side * 20, 2], [28 + side * 25, 16], [28 + side * 20, 30], [28, 24]].map(([x, y]) => new Phaser.Math.Vector2(x, y));
+      g.fillStyle(0xe2c25a).fillPoints(blade, true).strokePoints(blade, true);
+    }
+    g.generateTexture('proj_axe', 56, 56);
+    g.clear();
+    for (const [key, glow, core] of [['proj_orb_purple', 0xb06cff, 0xf3e8ff], ['proj_orb_teal', 0x2dd4bf, 0xccfbf1]]) {
+      g.fillStyle(glow, 0.22).fillCircle(26, 26, 25);
+      g.fillStyle(glow, 0.45).fillCircle(26, 26, 18);
+      g.fillStyle(glow, 0.9).fillCircle(26, 26, 12);
+      g.fillStyle(core, 1).fillCircle(26, 26, 6);
+      g.generateTexture(key, 52, 52);
+      g.clear();
+    }
     g.destroy();
   }
 }
