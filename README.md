@@ -29,7 +29,8 @@ npm run dev        # open the printed http://localhost URL
    - Everything is saved in the browser. A list typed in the old text box is kept as "My words".
 2. **The map**: an old parchment map of the Word Realm with a place for each game. Hover a place to mark it and read
    what it is; click it to play. **Balloon Meadow** is the balloon game. **Lava Crossing** is the lava level, always open; only
-   a Hebrew–Hebrew list can't open it, since it spells English words. **✎ Change words** goes back to the word lists.
+   a Hebrew–Hebrew list can't open it, since it spells English words. **Shark Lake** (where a shark's fin circles)
+   is the diving game, open under the same rule. **✎ Change words** goes back to the word lists.
 3. **Questions**: the banner shows a word and a wave of balloons rises with candidate translations.
    - Click the right balloon: the arrow homes in and pops it. +10 points, plus 2 per answer in your current streak (up to +10),
      plus the long word and tricky word bonuses (see **Points** below).
@@ -94,7 +95,8 @@ them, so leaving a game early with **Esc** keeps them.
   for each time you missed it, up to twice. Answering it right with no mistakes takes one away. A word you miss
   now becomes tricky from the next question it comes up in, not the current one.
 - **Completing a stage** earns a bonus. A balloon round with at least 5 right answers: +30, and +30 more at 80%
-  success or better. A lava game with every word crossed: +50, and +50 more with no mistakes. The end screen
+  success or better. A lava game with every word crossed: +50, and +50 more with no mistakes (the same for a Shark Lake
+  game with every word spelled). The end screen
   shows it as ⭐ Stage bonus.
 - A typical game earns about 200–300 points with the stage bonus, and the shop prices follow that: a single-use item costs about half
   a game, a skin a couple of games, and the best players about five.
@@ -119,6 +121,8 @@ them again.
 | Lava Crossing | Safety rope (catches you once; you keep your life) | one save | 100 |
 | | Extra life (4 instead of 3) | one game | 150 |
 | | Gold robot / Ice robot | skin | 400 / 300 |
+| Shark Lake | Shark repellent (the shark starts stunned for 5 s) | one game | 100 |
+| | Red / Orange / Purple / Pink / Black wetsuit | skin | 300 each |
 | Players | Girl / Boy (run and shoot arrows) | skin | 600 / 600 |
 | | Axe warrior / Axe scout / Axe girl (throw a spinning axe) | skin | 800 each |
 | | Shadow mage / Frost mage (cast magic orbs) | skin | 1000 each |
@@ -144,6 +148,19 @@ Open it from **Lava Crossing** on the map or the balloon end screen's **Lava lev
 - 10 points per letter, +20 for a word with no mistakes, +10 for each earlier miss of a tricky word. 5 words per game, taken from your list (single words of 2–12 letters; Hebrew–Hebrew lists are spelled in Hebrew).
 - Practice it directly: open `http://localhost:5173/?level=lava` (uses the chosen word list).
 
+## Shark Lake (spelling)
+
+Open it from **Shark Lake** on the map. A diver swims in a lake while a shark hunts it. The banner shows the word to
+spell (as in the lava level), and three letter bubbles float in the water: the next letter and two wrong ones.
+
+- Swim with the arrow keys (or WASD), or move the mouse over the lake: the diver swims toward it, in four directions.
+- Swim into the **right** letter: the shark is stunned for 3 seconds (💫), and the next letter's bubbles appear.
+- A **wrong** letter pops its bubble, takes 5 points back and makes the shark lunge closer.
+- The shark is slower than the diver. If it catches you, you lose one of 3 lives, the shark is chased off to the far side
+  and the diver is safe for a moment. Losing all three ends the game (**Caught!**).
+- Points as in the lava level, 5 words per game. **🔊** or **Space** says the word; **Esc** goes back to the map.
+- The end screen has **Play again**, **Lava** and **Map**. Practice it directly: `http://localhost:5173/?level=shark`.
+
 ## Code
 
 - `tools/slice_characters.py` (`npm run characters`): cuts the five Gemini characters out of `gemini-pics/` (removing the black or white background, grid lines and boxes) and packs their walk, aim, throw, hurt and front poses into the same frame layouts. `src/players.js` lists every player's sheets, throwing hand, rope tie point and projectile.
@@ -159,6 +176,9 @@ Open it from **Lava Crossing** on the map or the balloon end screen's **Lava lev
 - `src/ui/wordListForm.js`: the HTML word-list overlay (HTML so Hebrew typing and RTL work natively).
 - `src/spelling.js`: lava-level rules (`spellingWord`, `SpellingRun`, `successRate`).
 - `src/speech.js`: spoken words (`Speaker`, `voice`): Wiktionary lookup, 6 s deadline, one word at a time.
+- `src/sharkChase.js`: Shark Lake's chase (`Shark`, `moveDiver`, `keyVector`, `pointerVector`, `placeLetters`, `touchedLetter`, `SWIM_ROWS`).
+- `src/scenes/SharkScene.js`: Shark Lake. In dev, `getScene('shark')` exposes `state`, `run`, `bubbles`, `diver`, `shark`, `lives`, `score`.
+- `tools/slice_divers.py` (`npm run divers`): cuts the diver and the shark out of `gemini-pics/diver.jpeg` and `shark.jpeg` (removing the black and the blue water backgrounds) into `diver.png`, `shark.png` and a recoloured `diver_<suit>.png` per wetsuit.
 - `src/scenes/LavaScene.js`: the lava level. In dev, `getScene('lava')` exposes `state`, `run`, `rocks`, `lives`, `score`.
 - `src/scenes/GameScene.js`: the game. In dev, `window.game.scene.getScene('game')` exposes `state`, `quiz` and `balloons`.
 

@@ -19,6 +19,13 @@ export const ITEMS = [
   { id: 'lava-life', game: 'lava', kind: 'single', name: 'Extra life', short: '+1 life', about: '4 lives instead of 3 for one game', cost: 150, icon: 'heart', lasts: 'one game' },
   { id: 'robot-gold', game: 'lava', kind: 'skin', slot: 'robot', name: 'Gold robot', short: 'Gold', about: 'Shiny and fireproof-looking', cost: 400, icon: 'robot', tint: 0xffc94d },
   { id: 'robot-ice', game: 'lava', kind: 'skin', slot: 'robot', name: 'Ice robot', short: 'Ice', about: 'Cool under pressure', cost: 300, icon: 'robot', tint: 0x8fd3ff },
+  // Shark Lake: wetsuits recolour the diver (the sheet is `diver_<suit>`, from tools/slice_divers.py).
+  { id: 'shark-repel', game: 'shark', kind: 'single', name: 'Shark repellent', short: 'Repel', about: 'The shark starts the game stunned for 5 seconds', cost: 100, icon: 'repel', lasts: 'one game' },
+  { id: 'diver-red', game: 'shark', kind: 'skin', slot: 'diver', name: 'Red wetsuit', short: 'Red', about: 'A bright red wetsuit', cost: 300, icon: 'diver', suit: 'red' },
+  { id: 'diver-orange', game: 'shark', kind: 'skin', slot: 'diver', name: 'Orange wetsuit', short: 'Orange', about: 'Rescue-team orange', cost: 300, icon: 'diver', suit: 'orange' },
+  { id: 'diver-purple', game: 'shark', kind: 'skin', slot: 'diver', name: 'Purple wetsuit', short: 'Purple', about: 'Deep-sea purple', cost: 300, icon: 'diver', suit: 'purple' },
+  { id: 'diver-pink', game: 'shark', kind: 'skin', slot: 'diver', name: 'Pink wetsuit', short: 'Pink', about: 'Coral-reef pink', cost: 300, icon: 'diver', suit: 'pink' },
+  { id: 'diver-black', game: 'shark', kind: 'skin', slot: 'diver', name: 'Black wetsuit', short: 'Black', about: 'Stealthy night-dive black', cost: 300, icon: 'diver', suit: 'black' },
   // Players replace the horse archer and the robot in both games.
   // `sprite` names the player's sheets (src/players.js).
   { id: 'player-girl', game: 'players', kind: 'skin', slot: 'player', name: 'Girl', short: 'Girl', about: 'Runs and shoots arrows', cost: 600, icon: 'player', sprite: 'kid_girl' },
@@ -33,6 +40,7 @@ export const ITEMS = [
 export const GAMES = [
   { id: 'balloons', name: 'Balloon Meadow' },
   { id: 'lava', name: 'Lava Crossing' },
+  { id: 'shark', name: 'Shark Lake' },
   { id: 'players', name: 'Players' },
 ];
 

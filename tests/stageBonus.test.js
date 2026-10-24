@@ -73,3 +73,24 @@ describe('stageBonus() with junk', () => {
     expect(stageBonus(game, result)).toBe(0);
   });
 });
+
+// Shark Lake has the same rule as the lava level: every word spelled earns 50, with no mistakes 100.
+describe('stageBonus("shark")', () => {
+  it('gives 100 for every word with no mistakes, 50 with mistakes', () => {
+    expect(stageBonus('shark', { spelled: 5, total: 5, mistakes: 0 })).toBe(100);
+    expect(stageBonus('shark', { spelled: 5, total: 5, mistakes: 2 })).toBe(50);
+  });
+
+  it('gives nothing when caught before the last word, for no words, or for junk', () => {
+    expect(stageBonus('shark', { spelled: 3, total: 5, mistakes: 0 })).toBe(0);
+    expect(stageBonus('shark', { spelled: 0, total: 0, mistakes: 0 })).toBe(0);
+    expect(stageBonus('shark', undefined)).toBe(0);
+    expect(stageBonus('shark', {})).toBe(0);
+  });
+
+  it('matches the lava rule', () => {
+    for (const r of [{ spelled: 2, total: 2, mistakes: 0 }, { spelled: 2, total: 2, mistakes: 1 }, { spelled: 1, total: 2, mistakes: 0 }]) {
+      expect(stageBonus('shark', r)).toBe(stageBonus('lava', r));
+    }
+  });
+});

@@ -5,6 +5,7 @@ const ICONS = {
   'balloons-time': '⏱', 'balloons-slow': '🎈', 'balloons-fire': '🔥', 'archer-gold': '🏇', 'archer-night': '🌙',
   'lava-rope': '🪢', 'lava-life': '❤', 'robot-gold': '✨', 'robot-ice': '❄', 'player-girl': '👧', 'player-boy': '👦',
   'player-axe-boy': '🪓', 'player-axe-scout': '🪓', 'player-axe-girl': '🪓', 'player-shadow-mage': '🔮', 'player-frost-mage': '🧊',
+  'shark-repel': '🧴', 'diver-red': '🤿', 'diver-orange': '🤿', 'diver-purple': '🤿', 'diver-pink': '🤿', 'diver-black': '🤿',
 };
 const BADGE_W = 66;
 const BADGE_H = 58;

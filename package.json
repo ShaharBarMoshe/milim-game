@@ -7,6 +7,7 @@
     "sprites": "python3 -I tools/slice_sprites.py",
     "kids": "python3 -I tools/draw_kids.py",
     "characters": "python3 -I tools/slice_characters.py",
+    "divers": "python3 -I tools/slice_divers.py",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",

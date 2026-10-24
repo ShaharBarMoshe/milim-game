@@ -44,7 +44,8 @@ export function spellingPoints(word, { mistakes = 0, tricky = 0 } = {}) {
 
 // Extra points for completing a stage. A balloon round (Quiz.stats()) with at least 5 right answers
 // earns 30, and 30 more at 80% success or better. A lava game with every word crossed
-// ({ spelled, total, mistakes }) earns 50, and 50 more with no mistakes. Anything else earns 0.
+// ({ spelled, total, mistakes }) earns 50, and 50 more with no mistakes; so does a Shark Lake game.
+// Anything else earns 0.
 export function stageBonus(game, result) {
   if (!result || typeof result !== 'object') return 0;
   if (game === 'balloons') {
@@ -52,7 +53,7 @@ export function stageBonus(game, result) {
     if (![correct, wrong, missed].every(Number.isFinite) || correct < 5) return 0;
     return 30 + (successRate(result) >= 80 ? 30 : 0);
   }
-  if (game === 'lava') {
+  if (game === 'lava' || game === 'shark') {
     const { spelled, total, mistakes } = result;
     if (!Number.isFinite(total) || total <= 0 || spelled !== total) return 0;
     return 50 + (mistakes === 0 ? 50 : 0);

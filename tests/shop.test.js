@@ -45,12 +45,57 @@ describe('the catalogue', () => {
     expect(shop.skin('player').sprite).toBe('kid_girl');
   });
 
-  it('has single-use items and permanent ones for both games', () => {
+  it('has single-use items and permanent ones for every game', () => {
+    expect(GAMES.map((g) => g.id)).toEqual(['balloons', 'lava', 'shark', 'players']);
     for (const game of GAMES.filter((g) => g.id !== 'players')) {
       const kinds = new Set(ITEMS.filter((i) => i.game === game.id).map((i) => i.kind));
       expect(kinds.has('single')).toBe(true);
       expect(kinds.has('skin')).toBe(true);
     }
+  });
+});
+
+describe('Shark Lake items', () => {
+  const suits = ITEMS.filter((i) => i.slot === 'diver');
+
+  it('sells five diver suit colours, worn one at a time', () => {
+    expect(suits.map((s) => s.id).sort()).toEqual(['diver-black', 'diver-orange', 'diver-pink', 'diver-purple', 'diver-red']);
+    for (const s of suits) {
+      expect(s).toMatchObject({ game: 'shark', kind: 'skin', icon: 'diver', suit: s.id.slice('diver-'.length) });
+      expect(s.cost).toBeGreaterThan(0);
+    }
+    const shop = new Shop(memoryStorage());
+    shop.earn(1000);
+    expect(shop.buy('diver-red')).toEqual({ ok: true });
+    expect(shop.skin('diver').suit).toBe('red');
+    shop.buy('diver-black');
+    expect(shop.skin('diver').suit).toBe('black');
+    expect(shop.has('diver-red')).toBe(false);
+    shop.toggleSkin('diver-red');
+    expect(shop.skin('diver').id).toBe('diver-red');
+    // A suit doesn't change the other games' skins.
+    expect(shop.skin('player')).toBeNull();
+    expect(shop.skin('robot')).toBeNull();
+  });
+
+  it('sells a shark repellent that each game uses up', () => {
+    expect(item('shark-repel')).toMatchObject({ game: 'shark', kind: 'single', cost: 100, icon: 'repel', lasts: 'one game' });
+    const shop = new Shop(memoryStorage());
+    shop.earn(200);
+    shop.buy('shark-repel');
+    shop.buy('shark-repel');
+    expect(shop.count('shark-repel')).toBe(2);
+    expect(shop.use('shark-repel')).toBe(true);
+    expect(shop.use('shark-repel')).toBe(true);
+    expect(shop.use('shark-repel')).toBe(false);
+  });
+
+  it('keeps a worn suit across page loads', () => {
+    const storage = memoryStorage();
+    const shop = new Shop(storage);
+    shop.earn(500);
+    shop.buy('diver-pink');
+    expect(new Shop(storage).skin('diver').id).toBe('diver-pink');
   });
 });
 

@@ -3,15 +3,17 @@
 import Phaser from 'phaser';
 import { ROBOT_FRAMES } from './PreloadScene.js';
 import { GAMES, ITEMS, Shop } from '../shop.js';
+import { FRAMES_PER_ROW, SWIM_ROWS } from '../sharkChase.js';
 import { sfx } from '../sound.js';
 import { FONT, INK, W, H, drawParchment } from './parchment.js';
 
 const CARD_W = 172;
 const GRID_W = 5 * CARD_W + 4 * 16; // a row of more than five cards shares this width
-const CARD_H = 172;
+const CARD_H = 138;
 const CARD_GAP = 16;
 const GRID_LEFT = 300; // left edge of the first card; the game names sit to its left
-const ROW_TOP = [118, 304, 490];
+const ROW_TOP = [112, 262, 412, 562]; // one row per game, filling the screen below the title
+const ICON_SCALE = 0.8;
 const FIRE_TINT = 0xff7a1a;
 
 export default class ShopScene extends Phaser.Scene {
@@ -46,7 +48,7 @@ export default class ShopScene extends Phaser.Scene {
     GAMES.forEach((game, row) => {
       const top = ROW_TOP[row];
       this.add.text(GRID_LEFT - 30, top + CARD_H / 2, game.name.replace(' ', '\n'), {
-        fontFamily: FONT, fontSize: '26px', fontStyle: 'bold', color: '#3b1f08', align: 'right', lineSpacing: 4,
+        fontFamily: FONT, fontSize: '24px', fontStyle: 'bold', color: '#3b1f08', align: 'right', lineSpacing: 4,
       }).setOrigin(1, 0.5);
       const items = ITEMS.filter((it) => it.game === game.id);
       const cardW = Math.min(CARD_W, Math.floor((GRID_W - (items.length - 1) * CARD_GAP) / items.length));
@@ -64,20 +66,20 @@ export default class ShopScene extends Phaser.Scene {
   createCard(it, x, y, cardW = CARD_W) {
     const c = this.add.container(x, y).setDepth(5);
     const bg = this.add.rectangle(0, 0, cardW, CARD_H, 0xf5e6c0, 0.95).setStrokeStyle(3, INK);
-    const icon = this.makeIcon(it, 0, -44);
-    const name = this.add.text(0, 4, it.name, {
+    const icon = this.add.container(0, -36, this.makeIcon(it, 0, 0)).setScale(ICON_SCALE);
+    const name = this.add.text(0, 0, it.name, {
       fontFamily: FONT, fontSize: cardW < CARD_W ? '15px' : '18px', fontStyle: 'bold', color: '#3b1f08',
     }).setOrigin(0.5);
-    const about = this.add.text(0, 32, it.about, {
+    const about = this.add.text(0, 24, it.about, {
       fontFamily: FONT, fontSize: '12px', color: '#5b3510', align: 'center', wordWrap: { width: cardW - 14 },
     }).setOrigin(0.5);
-    const badge = this.add.text(0, CARD_H / 2 - 17, '', {
-      fontFamily: FONT, fontSize: '17px', fontStyle: 'bold', color: '#fef3c7', backgroundColor: '#9a3412', padding: { x: 10, y: 5 },
+    const badge = this.add.text(0, CARD_H / 2 - 15, '', {
+      fontFamily: FONT, fontSize: '16px', fontStyle: 'bold', color: '#fef3c7', backgroundColor: '#9a3412', padding: { x: 10, y: 5 },
     }).setOrigin(0.5);
     // Single-use items: how many are waiting to be used, beside the price.
     const single = it.kind === 'single';
-    if (single) badge.setX(-38);
-    const stock = this.add.text(40, CARD_H / 2 - 17, '', {
+    if (single) badge.setX(-cardW * 0.22);
+    const stock = this.add.text(cardW * 0.25, CARD_H / 2 - 15, '', {
       fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: '#fef3c7', backgroundColor: '#1e3a5f', padding: { x: 6, y: 4 },
     }).setOrigin(0.5);
     c.add([bg, icon, name, about, badge, stock]);
@@ -113,6 +115,17 @@ export default class ShopScene extends Phaser.Scene {
         return this.add.sprite(x, y + 32, `${it.sprite}_jumper`, ROBOT_FRAMES.front).setOrigin(0.5, 1).setScale(0.55);
       case 'robot':
         return this.add.sprite(x, y + 26, 'robot', ROBOT_FRAMES.front).setOrigin(0.5, 1).setScale(0.46).setTint(it.tint);
+      case 'diver':
+        return this.add.sprite(x, y, it.suit ? `diver_${it.suit}` : 'diver', SWIM_ROWS.right * FRAMES_PER_ROW).setScale(0.62);
+      case 'repel': {
+        // A spray can with a puff.
+        const g = this.add.graphics({ x, y });
+        g.fillStyle(0x16a34a).fillRoundedRect(-14, -14, 28, 46, 6).lineStyle(3, INK).strokeRoundedRect(-14, -14, 28, 46, 6);
+        g.fillStyle(0xe2e8f0).fillRect(-6, -24, 12, 10).lineStyle(2, INK).strokeRect(-6, -24, 12, 10);
+        g.fillStyle(0xfef3c7).fillRect(-14, 0, 28, 12);
+        g.fillStyle(0xbae6fd, 0.9).fillCircle(20, -28, 8).fillCircle(32, -34, 10).fillCircle(30, -20, 7);
+        return g;
+      }
       case 'heart':
         return this.add.text(x, y, '❤', { fontSize: '50px', color: '#e11d48' }).setOrigin(0.5);
       case 'rope': {

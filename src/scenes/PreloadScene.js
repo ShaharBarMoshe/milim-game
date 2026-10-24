@@ -3,6 +3,11 @@ import { SAMPLE_PAIRS } from '../vocab.js';
 import { DIRECTIONS } from '../quiz.js';
 import { MIN_PAIRS, WordLibrary } from '../wordLists.js';
 import { PLAYER_SPRITES } from '../players.js';
+import { ITEMS } from '../shop.js';
+import { FRAMES_PER_ROW, SWIM_ROWS } from '../sharkChase.js';
+
+// Shark Lake's diver sheets: the teal original and one per wetsuit sold in the shop.
+const DIVER_SHEETS = ['diver', ...ITEMS.filter((it) => it.slot === 'diver').map((it) => `diver_${it.suit}`)];
 
 export const BALLOON_COLORS = {
   red: 0xe8343c,
@@ -62,6 +67,9 @@ export default class PreloadScene extends Phaser.Scene {
       this.load.spritesheet(`${sprite}_archer`, `assets/${sprite}_archer.png`, { frameWidth: archer.w, frameHeight: archer.h });
       this.load.spritesheet(`${sprite}_jumper`, `assets/${sprite}_jumper.png`, { frameWidth: jumper.w, frameHeight: jumper.h });
     }
+    // Shark Lake (tools/slice_divers.py): rows swim right, left, up, down.
+    for (const key of DIVER_SHEETS) this.load.spritesheet(key, `assets/${key}.png`, { frameWidth: 160, frameHeight: 160 });
+    this.load.spritesheet('shark', 'assets/shark.png', { frameWidth: 200, frameHeight: 200 });
     for (const color of Object.keys(BALLOON_COLORS)) {
       this.load.image(`balloon_${color}`, `assets/balloon_${color}.png`);
       this.load.spritesheet(`pop_${color}`, `assets/pop_${color}.png`, { frameWidth: 186, frameHeight: 236 });
@@ -76,13 +84,25 @@ export default class PreloadScene extends Phaser.Scene {
         frameRate: 16,
       });
     }
+    // One looping swim animation per sheet and direction: '<sheet>-right', 'shark-up', ...
+    for (const key of [...DIVER_SHEETS, 'shark']) {
+      for (const [dir, row] of Object.entries(SWIM_ROWS)) {
+        this.anims.create({
+          key: `${key}-${dir}`,
+          frames: this.anims.generateFrameNumbers(key, { start: row * FRAMES_PER_ROW, end: row * FRAMES_PER_ROW + FRAMES_PER_ROW - 1 }),
+          frameRate: key === 'shark' ? 7 : 9,
+          repeat: -1,
+        });
+      }
+    }
     this.makeProceduralTextures();
-    // ?level=lava jumps straight to the lava level with the chosen word list (handy for practice).
-    if (new URLSearchParams(window.location.search).get('level') === 'lava') {
+    // ?level=lava (or ?level=shark) jumps straight to that game with the chosen word list (handy for practice).
+    const level = new URLSearchParams(window.location.search).get('level');
+    if (level === 'lava' || level === 'shark') {
       const list = WordLibrary.load().selected;
       const pairs = list.pairs.length >= MIN_PAIRS ? list.pairs : SAMPLE_PAIRS;
       this.registry.set('words', { pairs, direction: DIRECTIONS.MIXED, listId: list.id, listName: list.name });
-      this.scene.start('lava', { pairs });
+      this.scene.start(level, { pairs });
     } else {
       this.scene.start('map');
     }

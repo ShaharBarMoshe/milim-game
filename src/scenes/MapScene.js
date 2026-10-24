@@ -7,6 +7,7 @@ import { DIRECTIONS } from '../quiz.js';
 import { SAMPLE_PAIRS } from '../vocab.js';
 import { spellingTarget } from '../spelling.js';
 import { Shop } from '../shop.js';
+import { FRAMES_PER_ROW, SWIM_ROWS } from '../sharkChase.js';
 import { FONT, H, INK, W, drawParchment, drawShopSign } from './parchment.js';
 
 
@@ -26,6 +27,13 @@ const SPOTS = {
     name: 'Lava Crossing',
     about: 'Spell the word by jumping\nfrom rock to rock over the lava.',
     color: 0xf97316,
+  },
+  shark: {
+    x: 290,
+    y: 585,
+    name: 'Shark Lake',
+    about: 'Swim to the right letters\nbefore the shark catches you!',
+    color: 0x0284c7,
   },
   shop: {
     x: 655,
@@ -61,6 +69,7 @@ export default class MapScene extends Phaser.Scene {
     this.drawPath(CAMP, SPOTS.balloons, -120);
     this.drawPath(CAMP, SPOTS.lava, 90);
     this.drawPath(CAMP, SPOTS.shop, 30);
+    this.drawPath(CAMP, SPOTS.shark, 40);
     this.drawCamp();
     this.drawCompass(1170, 620);
     this.animated = this.add.graphics().setDepth(4);
@@ -94,11 +103,14 @@ export default class MapScene extends Phaser.Scene {
     const { pairs, listName } = currentWords(this.registry);
     this.listText.setText(`Words: ${listName}`);
     this.pointsText.setText(`🪙 ${new Shop().points} points`);
-    // Always open, unless the list has no single word to spell (only phrases, or words over 12 letters).
-    const lava = this.spots.lava;
-    lava.locked = pairs.some((p) => spellingTarget(p)) ? null : 'No words to spell here:\nadd single words of 2–12 letters.';
-    lava.lock.setVisible(Boolean(lava.locked));
-    lava.icon.setAlpha(lava.locked ? 0.45 : 1);
+    // The spelling games are always open, unless the list has no single word to spell (only phrases,
+    // or words over 12 letters).
+    const canSpell = pairs.some((p) => spellingTarget(p));
+    for (const spot of [this.spots.lava, this.spots.shark]) {
+      spot.locked = canSpell ? null : 'No words to spell here:\nadd single words of 2–12 letters.';
+      spot.lock.setVisible(Boolean(spot.locked));
+      spot.icon.setAlpha(spot.locked ? 0.45 : 1);
+    }
     this.setSpotsVisible(true);
   }
 
@@ -120,7 +132,7 @@ export default class MapScene extends Phaser.Scene {
     const { pairs } = currentWords(this.registry);
     this.cameras.main.fadeOut(250);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      if (key === 'lava') this.scene.start('lava', { pairs });
+      if (key === 'lava' || key === 'shark') this.scene.start(key, { pairs });
       else if (key === 'shop') this.scene.start('shop');
       else this.scene.start('game');
     });
@@ -137,7 +149,9 @@ export default class MapScene extends Phaser.Scene {
     const icon =
       key === 'balloons'
         ? this.add.image(0, 2, 'balloon_red').setScale(0.36)
-        : key === 'shop'
+        : key === 'shark'
+          ? this.add.sprite(0, 2, 'shark', SWIM_ROWS.right * FRAMES_PER_ROW + 2).setScale(0.34)
+          : key === 'shop'
           ? this.add.container(0, 0, drawShopSign(this))
           : this.add.sprite(0, 14, 'robot', ROBOT_FRAMES.front).setScale(0.42).setOrigin(0.5, 1).setY(24);
     const lock = this.add.text(26, -30, '🔒', { fontSize: '26px' }).setOrigin(0.5).setVisible(false);
@@ -224,7 +238,7 @@ export default class MapScene extends Phaser.Scene {
     g.fillStyle(0x38bdf8, 0.7).fillEllipse(x - 20, y - 14, 180, 70);
     g.lineStyle(4, 0x075985).strokeEllipse(x, y, 330, 170);
     this.lake = { x, y };
-    this.add.text(x, y + 4, 'Silent Lake', { fontFamily: FONT, fontSize: '18px', fontStyle: 'italic', color: '#e0f2fe' }).setOrigin(0.5).setDepth(5);
+    this.add.text(x - 75, y - 52, 'Shark Lake', { fontFamily: FONT, fontSize: '18px', fontStyle: 'italic', color: '#e0f2fe' }).setOrigin(0.5).setDepth(5);
   }
 
   drawMountains() {
@@ -334,6 +348,14 @@ export default class MapScene extends Phaser.Scene {
       const r = (t * 18 + i * 45) % 135;
       g.lineStyle(2, 0xffffff, 0.3 * (1 - r / 135)).strokeEllipse(this.lake.x, this.lake.y - 4, r * 2, r);
     }
+    // A shark's fin circling in the lake, with a little wake behind it.
+    const a = t * 0.9;
+    const fx = this.lake.x + Math.cos(a) * 120;
+    const fy = this.lake.y + Math.sin(a) * 52;
+    const dir = -Math.sin(a) >= 0 ? 1 : -1; // which way it is heading, left or right
+    g.lineStyle(3, 0xe0f2fe, 0.7).lineBetween(fx - dir * 34, fy + 2, fx + dir * 6, fy + 2);
+    g.fillStyle(0x334155).fillTriangle(fx - dir * 16, fy, fx + dir * 14, fy, fx - dir * 8, fy - 28);
+    g.lineStyle(2, 0x0f172a).strokeTriangle(fx - dir * 16, fy, fx + dir * 14, fy, fx - dir * 8, fy - 28);
     // The glowing lava river and pools.
     const glow = Math.sin(t * 3) * 0.2 + 0.8;
     g.lineStyle(22, 0xef4444, glow).strokePoints(this.lavaRiver);
