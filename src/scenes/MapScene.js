@@ -6,13 +6,10 @@ import { showWordListForm, hideWordListForm } from '../ui/wordListForm.js';
 import { DIRECTIONS } from '../quiz.js';
 import { SAMPLE_PAIRS } from '../vocab.js';
 import { spellingTarget } from '../spelling.js';
+import { Shop } from '../shop.js';
+import { FONT, H, INK, W, drawParchment, drawShopSign } from './parchment.js';
 
-const W = 1280;
-const H = 720;
-const FONT = 'Georgia, "Times New Roman", serif';
 
-const INK = 0x4a2a0c; // dark brown map ink
-const PARCHMENT = 0xdcc498;
 
 const CAMP = { x: 640, y: 560 };
 const SPOTS = {
@@ -29,6 +26,13 @@ const SPOTS = {
     name: 'Lava Crossing',
     about: 'Spell the word by jumping\nfrom rock to rock over the lava.',
     color: 0xf97316,
+  },
+  shop: {
+    x: 655,
+    y: 385,
+    name: 'Trading Post',
+    about: 'Spend your points on upgrades\nand skins for the games.',
+    color: 0xb45309,
   },
 };
 
@@ -48,7 +52,7 @@ export default class MapScene extends Phaser.Scene {
     this.spots = {};
     this.events.once('shutdown', hideWordListForm);
 
-    this.drawParchment();
+    drawParchment(this);
     this.drawLake(250, 590);
     this.drawMountains();
     this.drawForest();
@@ -56,12 +60,15 @@ export default class MapScene extends Phaser.Scene {
     this.drawLavaFields(SPOTS.lava);
     this.drawPath(CAMP, SPOTS.balloons, -120);
     this.drawPath(CAMP, SPOTS.lava, 90);
+    this.drawPath(CAMP, SPOTS.shop, 30);
     this.drawCamp();
     this.drawCompass(1170, 620);
     this.animated = this.add.graphics().setDepth(4);
     this.createHeader();
     Object.keys(SPOTS).forEach((key) => this.createSpot(key));
     this.createTooltip();
+    // Esc on the map opens the word lists.
+    this.input.keyboard.on('keydown-ESC', () => this.state === 'map' && this.openWordLists());
 
     if (data?.setup || !this.registry.has('words')) this.openWordLists();
     else this.showMap();
@@ -86,6 +93,7 @@ export default class MapScene extends Phaser.Scene {
     this.state = 'map';
     const { pairs, listName } = currentWords(this.registry);
     this.listText.setText(`Words: ${listName}`);
+    this.pointsText.setText(`🪙 ${new Shop().points} points`);
     // Always open, unless the list has no single word to spell (only phrases, or words over 12 letters).
     const lava = this.spots.lava;
     lava.locked = pairs.some((p) => spellingTarget(p)) ? null : 'No words to spell here:\nadd single words of 2–12 letters.';
@@ -113,6 +121,7 @@ export default class MapScene extends Phaser.Scene {
     this.cameras.main.fadeOut(250);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       if (key === 'lava') this.scene.start('lava', { pairs });
+      else if (key === 'shop') this.scene.start('shop');
       else this.scene.start('game');
     });
   }
@@ -128,7 +137,9 @@ export default class MapScene extends Phaser.Scene {
     const icon =
       key === 'balloons'
         ? this.add.image(0, 2, 'balloon_red').setScale(0.36)
-        : this.add.sprite(0, 14, 'robot', ROBOT_FRAMES.front).setScale(0.42).setOrigin(0.5, 1).setY(24);
+        : key === 'shop'
+          ? this.add.container(0, 0, drawShopSign(this))
+          : this.add.sprite(0, 14, 'robot', ROBOT_FRAMES.front).setScale(0.42).setOrigin(0.5, 1).setY(24);
     const lock = this.add.text(26, -30, '🔒', { fontSize: '26px' }).setOrigin(0.5).setVisible(false);
     const label = this.add.text(0, 66, def.name, {
       fontFamily: FONT, fontSize: '26px', fontStyle: 'bold', color: '#3b1f08', stroke: '#f5e6c0', strokeThickness: 5,
@@ -163,7 +174,7 @@ export default class MapScene extends Phaser.Scene {
     this.tweens.add({ targets: spot.container, scale: 1.18, duration: 140, ease: 'Back.easeOut' });
 
     this.tipTitle.setText(SPOTS[key].name);
-    this.tipText.setText(spot.locked ?? `${SPOTS[key].about}\n\nClick to play!`);
+    this.tipText.setText(spot.locked ?? `${SPOTS[key].about}\n\n${key === 'shop' ? 'Click to go shopping!' : 'Click to play!'}`);
     this.tipText.setColor(spot.locked ? '#fca5a5' : '#e2e8f0');
     const height = this.tipText.y + this.tipText.height + 16;
     this.tipBox.setSize(330, height);
@@ -190,6 +201,10 @@ export default class MapScene extends Phaser.Scene {
     this.listText = this.add.text(40, 36, '', {
       fontFamily: FONT, fontSize: '18px', fontStyle: 'bold', color: '#fef3c7', backgroundColor: '#5b3510cc', padding: { x: 12, y: 7 },
     });
+    // The points every game pays into, to spend at the Trading Post.
+    this.pointsText = this.add.text(40, 80, '', {
+      fontFamily: FONT, fontSize: '18px', fontStyle: 'bold', color: '#3b1f08', backgroundColor: '#fcd34dcc', padding: { x: 12, y: 7 },
+    });
     const change = this.add.text(W - 40, 36, '✎ Change words', {
       fontFamily: FONT, fontSize: '18px', fontStyle: 'bold', color: '#fef3c7', backgroundColor: '#1e3a5fdd', padding: { x: 12, y: 7 },
     }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
@@ -197,31 +212,10 @@ export default class MapScene extends Phaser.Scene {
     change.on('pointerout', () => change.setBackgroundColor('#1e3a5fdd'));
     change.on('pointerup', () => this.state === 'map' && this.openWordLists());
     this.changeButton = change;
-    this.header = this.add.container(0, 0, [title, hint, this.listText, change]).setDepth(15);
+    this.header = this.add.container(0, 0, [title, hint, this.listText, this.pointsText, change]).setDepth(15);
   }
 
   // ---------------------------------------------------------------- drawing
-
-  drawParchment() {
-    const g = this.add.graphics().setDepth(0);
-    g.fillStyle(PARCHMENT).fillRect(0, 0, W, H);
-    // Stains and blotches of old paper.
-    const rnd = new Phaser.Math.RandomDataGenerator(['word-realm']);
-    for (let i = 0; i < 70; i++) {
-      g.fillStyle(rnd.pick([0xc9ad7a, 0xe8d5ac, 0xbf9f6a]), rnd.realInRange(0.12, 0.3));
-      g.fillCircle(rnd.between(0, W), rnd.between(0, H), rnd.between(10, 70));
-    }
-    g.lineStyle(1, INK, 0.08);
-    for (let x = 0; x <= W; x += 80) g.lineBetween(x, 0, x, H);
-    for (let y = 0; y <= H; y += 80) g.lineBetween(0, y, W, y);
-    // Burnt, darker edges.
-    for (let i = 0; i < 28; i++) {
-      g.lineStyle(4, 0x4e2a0c, 0.05 + (28 - i) * 0.012);
-      g.strokeRect(i * 4, i * 4, W - i * 8, H - i * 8);
-    }
-    g.lineStyle(3, INK, 0.7).strokeRect(14, 14, W - 28, H - 28);
-    g.lineStyle(1, INK, 0.5).strokeRect(22, 22, W - 44, H - 44);
-  }
 
   drawLake(x, y) {
     const g = this.add.graphics().setDepth(1);

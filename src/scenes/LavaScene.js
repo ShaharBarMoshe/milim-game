@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import { ROBOT_FRAMES } from './PreloadScene.js';
 import { sfx } from '../sound.js';
 import { voice } from '../speech.js';
+import { Shop } from '../shop.js';
+import { showPerks } from './perks.js';
 import { shuffle } from '../quiz.js';
 import { SAMPLE_PAIRS } from '../vocab.js';
 import { SpellingRun, pickSpellingPairs, typedLetter } from '../spelling.js';
@@ -23,7 +25,7 @@ const ROCK_HALF_W = 58;
 
 const ROBOT_SCALE = 0.78;
 const JUMP_MS = 620;
-const RESPAWN_MS = 1300; // last life: the rope snaps, splash, game over
+const RESPAWN_MS = 1300; // in the lava: splash, then back on the last safe rock (or game over)
 const HANG_Y = LAVA_Y - 8; // a wrong jump leaves the robot dangling just above the lava
 const HANG_MS = 650;
 const CLIMB_MS = 1700;
@@ -44,6 +46,7 @@ export default class LavaScene extends Phaser.Scene {
   create() {
     this.state = 'playing';
     this.events.once('shutdown', () => voice.stop());
+    this.shop = new Shop();
     this.lives = LIVES;
     this.score = 0;
     this.spelled = 0;
@@ -56,6 +59,8 @@ export default class LavaScene extends Phaser.Scene {
     this.lava = this.add.graphics().setDepth(30).setScrollFactor(0);
     this.highlight = this.add.graphics().setDepth(16);
     this.robot = this.add.sprite(0, 0, 'robot', ROBOT_FRAMES.ready).setOrigin(0.5, 1).setScale(ROBOT_SCALE).setDepth(20);
+    const skin = this.shop.skin('robot');
+    if (skin) this.robot.setTint(skin.tint);
     this.rope = this.add.graphics().setDepth(21); // in front of the robot, so the waist loop shows
     this.ropeFrom = null; // the peg on the rock the robot jumped from, while the rope is out
     this.createHud();
@@ -67,6 +72,8 @@ export default class LavaScene extends Phaser.Scene {
       if (rock) this.jumpTo(rock);
     });
     // Typing a letter jumps onto the rock with that letter, if the next column has one.
+    // Esc leaves the game for the map (the game's points aren't added).
+    this.input.keyboard.on('keydown-ESC', () => this.scene.start('map'));
     this.input.keyboard.on('keydown', (event) => {
       if (event.code === 'Space') {
         this.sayWord();
@@ -82,7 +89,29 @@ export default class LavaScene extends Phaser.Scene {
       this.endGame('No words to spell', 'Add single words (2–12 letters) to your list.');
       return;
     }
+    // Single-use shop items: an extra life is taken at the start of a game; a safety rope only when it
+    // catches the robot (each rope saves it once).
+    this.extraLife = this.shop.use('lava-life');
+    if (this.extraLife) this.lives++;
     this.startWord();
+    const ready = [
+      this.ropes() && `🪢 ${this.ropes()} safety rope${this.ropes() > 1 ? 's' : ''}`,
+      this.extraLife && `❤ Extra life (${this.shop.count('lava-life')} left)`,
+    ].filter(Boolean);
+    if (ready.length) this.showMessage(`Using: ${ready.join('   ')}`, '#fff7c2');
+    this.showPerkBar();
+  }
+
+  ropes() {
+    return this.shop.count('lava-rope');
+  }
+
+  // Badges for everything from the shop that's on in this game (the rope with how many are left).
+  showPerkBar() {
+    this.perkBar?.destroy();
+    this.perkBar = showPerks(this, [this.ropes() && ['lava-rope', this.ropes()], this.extraLife && 'lava-life', this.shop.skin('robot')?.id], {
+      right: W - 24, top: 62,
+    });
   }
 
   // ---------------------------------------------------------------- scenery
@@ -256,7 +285,7 @@ export default class LavaScene extends Phaser.Scene {
     const { correct, done } = this.run.jump(rock.letter);
     this.state = 'jumping';
     sfx.jump();
-    this.attachRope(this.current);
+    if (this.ropes()) this.attachRope(this.current);
     this.animateJump(rock, () => {
       if (!correct) {
         this.sinkInLava(rock);
@@ -346,8 +375,9 @@ export default class LavaScene extends Phaser.Scene {
     this.rope.lineStyle(3.5, 0xf0c27a).strokeEllipse(bx, by, 56, 18);
   }
 
-  // Wrong letter: the rock gives way and the robot drops on the rope until it dangles just above the
-  // lava, then climbs back to the rock it jumped from. On the last life the rope snaps.
+  // Wrong letter: the rock gives way. A safety rope (from the shop) catches the robot just above the lava:
+  // no life is lost, it climbs back to the rock it jumped from, and that rope is used up. Without one
+  // the robot falls in.
   sinkInLava(rock) {
     this.state = 'falling';
     this.mistakes++;
@@ -356,11 +386,12 @@ export default class LavaScene extends Phaser.Scene {
     this.showMessage(`"${rock.letter}" is wrong!`, '#ff8a6a');
     this.tweens.add({ targets: rock.container, y: LAVA_Y - rock.y + 60, duration: 700, ease: 'Quad.easeIn' });
     this.robot.setFrame(ROBOT_FRAMES.fall);
-    if (this.lives <= 1) {
-      this.snapRope(rock);
+    if (!this.ropeFrom) {
+      this.fallIn(rock);
       return;
     }
     const anchor = this.ropeFrom;
+    this.shop.use('lava-rope');
     this.tweens.add({ targets: this, ropeSlack: 0, duration: 400 });
     this.tweens.add({
       targets: this.robot,
@@ -372,9 +403,9 @@ export default class LavaScene extends Phaser.Scene {
         // The rope jerks tight with the robot's feet over the lava.
         sfx.thud();
         this.cameras.main.shake(180, 0.004);
-        this.lives--;
-        this.updateHud();
-        this.showMessage('Hot! Climb back up…', '#ff8a6a');
+        const left = this.ropes();
+        this.showMessage(`The rope saved you! ${left ? `${left} rope${left > 1 ? 's' : ''} left` : 'No ropes left'}`, '#a8ffb0');
+        this.showPerkBar();
         this.steamPuffs(this.robot.x);
         this.tweens.add({ targets: this.robot, y: HANG_Y - 16, duration: 140, yoyo: true, repeat: 1, ease: 'Sine.easeOut' });
         this.time.delayedCall(HANG_MS, () => this.climbBack());
@@ -425,8 +456,8 @@ export default class LavaScene extends Phaser.Scene {
     }
   }
 
-  // Last life: the rope breaks and the robot drops into the lava.
-  snapRope(rock) {
+  // Into the lava (the rope, if any, snaps): a life is lost, then back on the last safe rock, or game over.
+  fallIn(rock) {
     this.ropeFrom = null;
     this.tweens.add({
       targets: this.robot,
@@ -444,14 +475,26 @@ export default class LavaScene extends Phaser.Scene {
         this.updateHud();
       },
     });
-    voice.say(this.run.word);
-    this.time.delayedCall(RESPAWN_MS, () => this.endGame('Burned out!', `The word was "${this.run.word}".`));
+    this.time.delayedCall(RESPAWN_MS, () => {
+      if (this.state === 'over') return;
+      if (this.lives <= 0) {
+        voice.say(this.run.word);
+        this.endGame('Burned out!', `The word was "${this.run.word}".`);
+        return;
+      }
+      // Back on the last safe rock to try again; the sunken rock is gone.
+      this.robot.setPosition(this.current.x, this.current.y + 6).setFrame(ROBOT_FRAMES.front).setVisible(true).setAlpha(0);
+      this.tweens.add({ targets: this.robot, alpha: 1, duration: 300 });
+      this.time.delayedCall(450, () => this.state === 'playing' && this.robot.setFrame(ROBOT_FRAMES.ready));
+      this.state = 'playing';
+      this.showMessage('Try again: which letter comes next?', '#ffd166');
+    });
   }
 
   finishWord() {
     this.state = 'jumping';
     const points = 10 * this.run.word.length + (this.run.mistakes === 0 ? 20 : 0);
-    this.attachRope(this.current);
+    if (this.ropes()) this.attachRope(this.current);
     this.animateJump(this.goal, () => {
       sfx.win();
       voice.say(this.run.word);
@@ -474,13 +517,16 @@ export default class LavaScene extends Phaser.Scene {
   endGame(title, detail) {
     this.state = 'over';
     this.updateHud();
+    // The score goes into the shop wallet shared by all the games.
+    const earned = this.shop.earn(this.score);
     const items = [];
     items.push(this.add.rectangle(W / 2, H / 2, 760, 360, 0x2a0c08, 0.92).setStrokeStyle(4, 0xffb040));
     items.push(this.add.text(W / 2, H / 2 - 120, title, {
       fontFamily: FONT, fontSize: '50px', fontStyle: 'bold', color: '#ffd166', stroke: '#000', strokeThickness: 6,
     }).setOrigin(0.5));
     items.push(this.add.text(W / 2, H / 2 - 30,
-      `${detail}\nWords spelled: ${this.spelled} / ${this.words.length}   Mistakes: ${this.mistakes}\nScore: ${this.score}`, {
+      `${detail}\nWords spelled: ${this.spelled} / ${this.words.length}   Mistakes: ${this.mistakes}\n` +
+      `Score: ${this.score}   🪙 +${earned} for the shop (${this.shop.points} in all)`, {
         fontFamily: FONT, fontSize: '24px', color: '#ffffff', align: 'center', lineSpacing: 10,
       }).setOrigin(0.5));
     const by = H / 2 + 115;

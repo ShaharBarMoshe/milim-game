@@ -29,6 +29,8 @@ npm run dev        # open the printed http://localhost URL
 4. After 60 seconds you get your score, correct/wrong/missed counts, accuracy and the words to practise,
    with **Play again**, **Lava level** and **Map**.
 
+- **Esc** in a game or the shop goes back to the map (a game left early adds no points); **Esc** on the map
+  opens the word lists.
 - **Mouse**: the hunter turns and draws the bow toward the cursor.
 - The hunter gallops back and forth on his own during a round and halts to shoot. **A / D** or **← / →** turn the horse around.
 
@@ -45,6 +47,35 @@ the browser, so only new words call the API (a word with no recording is checked
   English recording of are said (e.g. "dog", "ice cream"); others stay silent. A failed request, or one with no answer within 6 seconds, is
   skipped too; the game never waits for speech.
 
+## Trading Post (shop)
+
+Every finished balloon round and lava game adds its score to one wallet of points, shared by all the games
+and shown on the map. The **Trading Post** sign on the map opens the shop: a grid of items, one row per game.
+Choose an item to see its price and confirm (**Buy** / **Cancel**); the points are taken off straight away.
+
+Some items are **used up** and can be bought again and again; the shop card shows how many you have left.
+More time, Slow balloons and Extra life each last one round or game: a new game of their kind (Play again
+included) takes one from your stock and says so on screen. A **Safety rope** is used only when it saves you.
+The others are **permanent**: upgrades work for good, and skins can be worn or taken off for free by clicking
+them again.
+
+| Game | Item | Kind | Points |
+| --- | --- | --- | --- |
+| Balloon Meadow | More time (+15 s) | one round | 15 |
+| | Slow balloons (rise a quarter slower) | one round | 10 |
+| | Fire arrows | permanent | 15 |
+| | Golden archer / Night rider | skin | 25 / 20 |
+| Lava Crossing | Safety rope (catches you once; you keep your life) | one save | 10 |
+| | Extra life (4 instead of 3) | one game | 15 |
+| | Gold robot / Ice robot | skin | 25 / 20 |
+
+During a game, badges at the top right show every shop item it has on (green border: used up this game; gold: permanent).
+
+While you have ropes, every jump is roped: a wrong letter leaves the robot hanging just above the lava, it
+climbs back and keeps its life, and that rope is gone. With no ropes left, a wrong letter drops the robot into
+the lava: it loses a life and comes back on the last safe rock. Points,
+items, the stock and worn skins are saved in the browser (`src/shop.js`).
+
 ## Lava level (spelling)
 
 Open it from **Lava Crossing** on the map or the balloon end screen's **Lava level** button. A robot crosses a lava lake on floating rocks: the banner shows the Hebrew word (e.g. כלב) and each column of rocks holds one letter of the English word plus two wrong letters. Jump d → o → g to reach the flag.
@@ -52,11 +83,11 @@ Open it from **Lava Crossing** on the map or the balloon end screen's **Lava lev
 - Click a rock in the next column, or just type the letter.
 - The English word is said when it starts; **🔊** in the banner (or **Space**) says it again. A word the browser
   wouldn't play before your first click or key press plays then.
-- Every jump is roped to a peg on the rock it starts from. On a right letter the rope disappears once the robot lands.
-- A wrong letter sinks its rock: the robot drops on the rope until it dangles just above the lava, loses one of 3 lives,
-  and climbs back to the rock it jumped from. On the last life the rope snaps and the robot falls into the lava.
+- A wrong letter sinks its rock. With a **Safety rope** from the shop (every jump is then roped to a peg on the
+  rock it starts from) the robot dangles just above the lava, keeps its life and climbs back; that rope is used
+  up. Without one it falls into the lava, loses one of 3 lives and comes back on the last safe rock.
 - The end screen has **Play again**, **Balloons** and **Map**.
-- 10 points per letter, +20 for a word with no mistakes. 5 words per game, taken from your list (single English words of 2–8 letters).
+- 10 points per letter, +20 for a word with no mistakes. 5 words per game, taken from your list (single words of 2–12 letters; Hebrew–Hebrew lists are spelled in Hebrew).
 - Practice it directly: open `http://localhost:5173/?level=lava` (uses the chosen word list).
 
 ## Code

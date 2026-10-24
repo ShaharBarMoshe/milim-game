@@ -1,0 +1,222 @@
+// The Trading Post: a grid of items, one row per game. Choosing an item asks to confirm the price;
+// buying takes it from the points every game pays into. Owned skins can be put on or off for free.
+import Phaser from 'phaser';
+import { ROBOT_FRAMES } from './PreloadScene.js';
+import { GAMES, ITEMS, Shop } from '../shop.js';
+import { sfx } from '../sound.js';
+import { FONT, INK, W, H, drawParchment } from './parchment.js';
+
+const CARD_W = 172;
+const CARD_H = 228;
+const CARD_GAP = 16;
+const GRID_LEFT = 300; // left edge of the first card; the game names sit to its left
+const ROW_TOP = [150, 420];
+const FIRE_TINT = 0xff7a1a;
+
+export default class ShopScene extends Phaser.Scene {
+  constructor() {
+    super('shop');
+  }
+
+  create() {
+    this.shop = new Shop();
+    this.cards = {};
+    this.dialog = null;
+    this.cameras.main.fadeIn(250);
+    drawParchment(this);
+
+    this.add.text(W / 2, 50, 'The Trading Post', {
+      fontFamily: FONT, fontSize: '40px', fontStyle: 'bold', color: '#3b1f08', stroke: '#f5e6c0', strokeThickness: 6,
+    }).setOrigin(0.5);
+    this.add.text(W / 2, 92, 'Points from every game add up here. Choose something to buy.', {
+      fontFamily: FONT, fontSize: '18px', fontStyle: 'italic', color: '#5b3510',
+    }).setOrigin(0.5);
+    this.pointsText = this.add.text(W - 40, 36, '', {
+      fontFamily: FONT, fontSize: '22px', fontStyle: 'bold', color: '#3b1f08', backgroundColor: '#fcd34dee', padding: { x: 14, y: 8 },
+    }).setOrigin(1, 0);
+    const back = this.add.text(40, 36, '← Map', {
+      fontFamily: FONT, fontSize: '20px', fontStyle: 'bold', color: '#fef3c7', backgroundColor: '#1e3a5fdd', padding: { x: 14, y: 8 },
+    }).setInteractive({ useHandCursor: true });
+    back.on('pointerover', () => back.setBackgroundColor('#2c5a8fee'));
+    back.on('pointerout', () => back.setBackgroundColor('#1e3a5fdd'));
+    back.on('pointerup', () => !this.dialog && this.scene.start('map'));
+    this.backButton = back;
+
+    GAMES.forEach((game, row) => {
+      const top = ROW_TOP[row];
+      this.add.text(GRID_LEFT - 30, top + CARD_H / 2, game.name.replace(' ', '\n'), {
+        fontFamily: FONT, fontSize: '26px', fontStyle: 'bold', color: '#3b1f08', align: 'right', lineSpacing: 4,
+      }).setOrigin(1, 0.5);
+      ITEMS.filter((it) => it.game === game.id).forEach((it, col) => {
+        this.createCard(it, GRID_LEFT + col * (CARD_W + CARD_GAP) + CARD_W / 2, top + CARD_H / 2);
+      });
+    });
+    this.refresh();
+    // Esc closes an open dialog, otherwise goes back to the map.
+    this.input.keyboard.on('keydown-ESC', () => (this.dialog ? this.closeDialog() : this.scene.start('map')));
+  }
+
+  // ---------------------------------------------------------------- cards
+
+  createCard(it, x, y) {
+    const c = this.add.container(x, y).setDepth(5);
+    const bg = this.add.rectangle(0, 0, CARD_W, CARD_H, 0xf5e6c0, 0.95).setStrokeStyle(3, INK);
+    const icon = this.makeIcon(it, 0, -52);
+    const name = this.add.text(0, 14, it.name, { fontFamily: FONT, fontSize: '19px', fontStyle: 'bold', color: '#3b1f08' }).setOrigin(0.5);
+    const about = this.add.text(0, 50, it.about, {
+      fontFamily: FONT, fontSize: '13px', color: '#5b3510', align: 'center', wordWrap: { width: CARD_W - 18 },
+    }).setOrigin(0.5);
+    const badge = this.add.text(0, CARD_H / 2 - 22, '', {
+      fontFamily: FONT, fontSize: '17px', fontStyle: 'bold', color: '#fef3c7', backgroundColor: '#9a3412', padding: { x: 10, y: 5 },
+    }).setOrigin(0.5);
+    // Single-use items: how many are waiting to be used.
+    const stock = this.add.text(CARD_W / 2 - 8, -CARD_H / 2 + 8, '', {
+      fontFamily: FONT, fontSize: '15px', fontStyle: 'bold', color: '#fef3c7', backgroundColor: '#1e3a5f', padding: { x: 7, y: 3 },
+    }).setOrigin(1, 0);
+    c.add([bg, icon, name, about, badge, stock]);
+    c.setSize(CARD_W, CARD_H).setInteractive({ useHandCursor: true });
+    c.on('pointerover', () => {
+      if (this.dialog) return;
+      bg.setStrokeStyle(5, 0xd97706);
+      this.tweens.add({ targets: c, scale: 1.05, duration: 120 });
+    });
+    c.on('pointerout', () => {
+      bg.setStrokeStyle(3, INK);
+      this.tweens.add({ targets: c, scale: 1, duration: 120 });
+    });
+    c.on('pointerup', () => !this.dialog && this.choose(it));
+    this.cards[it.id] = { item: it, x, y, container: c, bg, badge, stock };
+  }
+
+  makeIcon(it, x, y) {
+    switch (it.icon) {
+      case 'clock': {
+        const g = this.add.graphics({ x, y });
+        g.fillStyle(0xfff7ed).fillCircle(0, 0, 34).lineStyle(5, INK).strokeCircle(0, 0, 34);
+        g.lineStyle(5, 0x9a3412).lineBetween(0, 0, 0, -22).lineBetween(0, 0, 16, 8);
+        return g;
+      }
+      case 'balloon':
+        return this.add.image(x, y, 'balloon_blue').setScale(0.42);
+      case 'arrow':
+        return this.add.image(x, y, 'arrow').setScale(0.55).setRotation(-0.5).setTint(FIRE_TINT);
+      case 'hunter':
+        return this.add.sprite(x, y + 40, 'hunter', 0).setOrigin(0.5, 1).setScale(0.36).setTint(it.tint);
+      case 'robot':
+        return this.add.sprite(x, y + 30, 'robot', ROBOT_FRAMES.front).setOrigin(0.5, 1).setScale(0.55).setTint(it.tint);
+      case 'heart':
+        return this.add.text(x, y, '❤', { fontSize: '62px', color: '#e11d48' }).setOrigin(0.5);
+      case 'rope': {
+        // A coil of rope with its end hanging down.
+        const g = this.add.graphics({ x, y });
+        for (let i = 0; i < 4; i++) {
+          g.lineStyle(9, 0x2a1606).strokeEllipse(0, -10 + i * 9, 74 - i * 6, 24);
+          g.lineStyle(5, 0xf0c27a).strokeEllipse(0, -10 + i * 9, 74 - i * 6, 24);
+        }
+        g.lineStyle(7, 0x2a1606).lineBetween(30, 22, 36, 40);
+        g.lineStyle(4, 0xf0c27a).lineBetween(30, 22, 36, 40);
+        return g;
+      }
+      default:
+        return this.add.text(x, y, '?', { fontSize: '40px' }).setOrigin(0.5);
+    }
+  }
+
+  // Price, or what you can do with it now.
+  refresh() {
+    this.pointsText.setText(`🪙 ${this.shop.points} points`);
+    for (const card of Object.values(this.cards)) {
+      const { item: it, badge, bg, stock } = card;
+      const left = this.shop.count(it.id);
+      stock.setText(it.kind === 'single' ? `You have ${left}` : '').setVisible(it.kind === 'single');
+      stock.setBackgroundColor(left ? '#15803d' : '#1e3a5f');
+      if (it.kind === 'skin' && this.shop.owns(it.id)) {
+        const worn = this.shop.has(it.id);
+        badge.setText(worn ? '✔ Wearing' : 'Wear it').setBackgroundColor(worn ? '#15803d' : '#1e3a5f');
+      } else if (this.shop.owns(it.id)) {
+        badge.setText('✔ Yours').setBackgroundColor('#15803d');
+      } else {
+        const short = this.shop.points < it.cost;
+        badge.setText(`🪙 ${it.cost}`).setBackgroundColor(short ? '#7c6f64' : '#9a3412');
+      }
+      bg.setFillStyle(this.shop.owns(it.id) ? 0xe7f5d8 : 0xf5e6c0, 0.95);
+    }
+  }
+
+  choose(it) {
+    if (it.kind === 'skin' && this.shop.owns(it.id)) {
+      this.shop.toggleSkin(it.id);
+      sfx.tick();
+      this.refresh();
+      return;
+    }
+    if (this.shop.owns(it.id)) return;
+    this.openDialog(it);
+  }
+
+  // ---------------------------------------------------------------- confirm
+
+  openDialog(it) {
+    const problem = this.shop.cantBuy(it.id);
+    const items = [];
+    // Full-screen catcher so nothing behind the dialog can be clicked.
+    items.push(this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.45).setInteractive());
+    items.push(this.add.rectangle(W / 2, H / 2, 560, 300, 0x0f172a, 0.96).setStrokeStyle(3, 0xb45309));
+    items.push(this.add.text(W / 2, H / 2 - 100, it.name, { fontFamily: FONT, fontSize: '30px', fontStyle: 'bold', color: '#fcd34d' }).setOrigin(0.5));
+    const single = it.kind === 'single';
+    const text = problem
+      ? `It costs 🪙 ${it.cost} and you have 🪙 ${this.shop.points}.\n${problem}: play a game to earn them!`
+      : `${single ? 'Buy one more' : 'Buy it'} for 🪙 ${it.cost} points?\n` +
+        (single ? `Each one lasts ${it.lasts}. You have ${this.shop.count(it.id)} now.\n` : 'It stays yours for good.\n') +
+        `You have 🪙 ${this.shop.points}, leaving 🪙 ${this.shop.points - it.cost}.`;
+    items.push(this.add.text(W / 2, H / 2 - 20, text, {
+      fontFamily: FONT, fontSize: '20px', color: '#e2e8f0', align: 'center', lineSpacing: 8,
+    }).setOrigin(0.5));
+    const buttons = problem
+      ? [['OK', 0x1e3a5f, () => this.closeDialog()]]
+      : [['Buy', 0x15803d, () => this.buy(it)], ['Cancel', 0x7c2d12, () => this.closeDialog()]];
+    buttons.forEach(([label, color, onClick], i) => {
+      const bx = W / 2 + (i - (buttons.length - 1) / 2) * 180;
+      const btn = this.add.text(bx, H / 2 + 90, label, {
+        fontFamily: FONT, fontSize: '24px', fontStyle: 'bold', color: '#ffffff',
+        backgroundColor: Phaser.Display.Color.IntegerToColor(color).rgba, padding: { x: 26, y: 10 },
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+      btn.on('pointerover', () => btn.setScale(1.06));
+      btn.on('pointerout', () => btn.setScale(1));
+      btn.on('pointerup', onClick);
+      items.push(btn);
+    });
+    items.forEach((o) => o.setDepth(50));
+    this.dialog = { item: it, items, buttons: items.filter((o) => o.type === 'Text' && buttons.some(([label]) => label === o.text)) };
+  }
+
+  closeDialog() {
+    this.dialog?.items.forEach((o) => o.destroy());
+    this.dialog = null;
+  }
+
+  buy(it) {
+    const before = this.shop.points;
+    const result = this.shop.buy(it.id);
+    this.closeDialog();
+    if (!result.ok) return;
+    sfx.win();
+    // Count the points down to the new total, and flash the card.
+    const counter = { value: before };
+    this.tweens.add({
+      targets: counter,
+      value: this.shop.points,
+      duration: 600,
+      onUpdate: () => this.pointsText.setText(`🪙 ${Math.round(counter.value)} points`),
+      onComplete: () => this.refresh(),
+    });
+    this.refresh();
+    this.pointsText.setText(`🪙 ${before} points`);
+    const card = this.cards[it.id];
+    this.tweens.add({ targets: card.container, scale: 1.12, duration: 160, yoyo: true });
+    const spent = this.add.text(this.pointsText.x - 80, this.pointsText.y + 50, `−${it.cost}`, {
+      fontFamily: FONT, fontSize: '26px', fontStyle: 'bold', color: '#b91c1c',
+    }).setDepth(60);
+    this.tweens.add({ targets: spent, y: spent.y + 30, alpha: 0, duration: 900, onComplete: () => spent.destroy() });
+  }
+}

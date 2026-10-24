@@ -83,3 +83,19 @@ test('a Hebrew–Hebrew list opens Lava Crossing too, and its words are spelled 
   await page.keyboard.press('e');
   await page.waitForFunction(() => window.game.scene.getScene('lava').run.position === 1, null, { timeout: 30_000 });
 });
+
+test('Esc in a game goes back to the map, and Esc on the map opens the word lists', async ({ page }) => {
+  await toMap(page);
+  await clickMapSpot(page, 'balloons');
+  await page.waitForFunction(() => window.game.scene.getScene('game')?.state === 'playing', null, { timeout: 30_000 });
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => window.game.scene.isActive('map') && window.game.scene.getScene('map').state === 'map', null, { timeout: 30_000 });
+
+  await clickMapSpot(page, 'lava');
+  await page.waitForFunction(() => window.game.scene.getScene('lava')?.state === 'playing', null, { timeout: 30_000 });
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => window.game.scene.isActive('map') && window.game.scene.getScene('map').state === 'map', null, { timeout: 30_000 });
+
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#word-form')).toBeVisible();
+});

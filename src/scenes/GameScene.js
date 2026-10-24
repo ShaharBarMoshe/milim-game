@@ -6,6 +6,8 @@ import { Quiz, DIRECTIONS } from '../quiz.js';
 import { steer, missPoint } from '../ballistics.js';
 import { currentWords } from './MapScene.js';
 import { spellingTarget, successRate } from '../spelling.js';
+import { Shop } from '../shop.js';
+import { showPerks } from './perks.js';
 
 const W = 1280;
 const H = 720;
@@ -33,6 +35,10 @@ const HOMING_MAX_S = 1.6;
 const MISS_CLEARANCE = 46;
 
 const ROUND_SECONDS = 60;
+// Shop upgrades for this game.
+const MORE_TIME_SECONDS = 15;
+const SLOW_RISE = 0.75;
+const FIRE_TINT = 0xff7a1a;
 const WIND_CHANGE_MS = 12000;
 const MAX_WIND = 160;
 
@@ -77,6 +83,7 @@ export default class GameScene extends Phaser.Scene {
     this.ready = true;
     this.rideDir = 1;
     this.best = loadBest();
+    this.shop = new Shop();
 
     this.drawBackground();
     this.createArcher();
@@ -97,6 +104,8 @@ export default class GameScene extends Phaser.Scene {
 
     // No key capture: the word-list form must still receive A, D and the arrow keys.
     this.keys = this.input.keyboard.addKeys('A,D,LEFT,RIGHT', false);
+    // Esc leaves the round for the map (the round's points aren't added).
+    this.input.keyboard.on('keydown-ESC', () => this.scene.start('map'));
     this.input.on('pointerdown', (pointer) => {
       if (pointer.leftButtonDown() && this.state === 'playing') this.handleClick(pointer.worldX, pointer.worldY);
     });
@@ -147,6 +156,8 @@ export default class GameScene extends Phaser.Scene {
       .setOrigin(0.5, 1)
       .setScale(ARCHER_SCALE)
       .setDepth(32);
+    const skin = this.shop.skin('archer');
+    if (skin) this.archer.setTint(skin.tint);
   }
 
   createHud() {
@@ -185,7 +196,7 @@ export default class GameScene extends Phaser.Scene {
 
   resetStats() {
     this.score = 0;
-    this.timeLeft = ROUND_SECONDS;
+    this.timeLeft = ROUND_SECONDS + (this.boosts?.time ? MORE_TIME_SECONDS : 0);
   }
 
   hideOverlay() {
@@ -201,8 +212,19 @@ export default class GameScene extends Phaser.Scene {
     this.pairs = pairs;
     this.direction = direction;
     this.quiz = new Quiz(pairs, { direction, optionCount: OPTION_COUNT });
+    // Single-use shop items: each round takes one of each from the stock, if there is one.
+    this.boosts = { time: this.shop.use('balloons-time'), slow: this.shop.use('balloons-slow') };
     this.resetStats();
     this.state = 'playing';
+    this.announceBoosts();
+    // Badges for everything from the shop that's on in this round.
+    this.perkBar?.destroy();
+    this.perkBar = showPerks(this, [
+      this.boosts.time && 'balloons-time',
+      this.boosts.slow && 'balloons-slow',
+      this.shop.has('balloons-fire') && 'balloons-fire',
+      this.shop.skin('archer')?.id,
+    ], { right: W - 24, top: 62 });
     this.setWind(Phaser.Math.Between(-MAX_WIND / 2, MAX_WIND / 2));
 
     this.stopTimers();
@@ -241,6 +263,8 @@ export default class GameScene extends Phaser.Scene {
       this.best = this.score;
       saveBest(this.best);
     }
+    // The score goes into the shop wallet shared by all the games.
+    this.earned = this.shop.earn(this.score);
     this.time.delayedCall(300, () => this.state === 'over' && this.showEndScreen(isBest));
   }
 
@@ -262,7 +286,7 @@ export default class GameScene extends Phaser.Scene {
     items.push(this.add.text(W / 2, top + 130,
       `Score: ${this.score}     Best: ${this.best}\n` +
       `Correct: ${s.correct}   Wrong: ${s.wrong}   Missed: ${s.missed}   Success: ${successRate(s)}%\n` +
-      `Best streak: ${s.bestStreak}`, {
+      `Best streak: ${s.bestStreak}   🪙 +${this.earned ?? 0} for the shop (${this.shop.points} in all)`, {
         fontFamily: FONT, fontSize: '24px', color: '#ffffff', align: 'center', lineSpacing: 8,
       }).setOrigin(0.5));
 
@@ -373,7 +397,7 @@ export default class GameScene extends Phaser.Scene {
     balloon.label = label;
     balloon.balloonScale = scale;
     balloon.baseX = x;
-    balloon.rise = Phaser.Math.Between(RISE_MIN, RISE_MAX);
+    balloon.rise = Phaser.Math.Between(RISE_MIN, RISE_MAX) * (this.boosts?.slow ? SLOW_RISE : 1);
     balloon.swayAmp = Phaser.Math.Between(8, 18);
     balloon.swayFreq = Phaser.Math.FloatBetween(0.8, 1.5);
     balloon.phase = Math.random() * Math.PI * 2;
@@ -526,6 +550,19 @@ export default class GameScene extends Phaser.Scene {
     this.time.delayedCall(NEXT_QUESTION_MS, () => id === this.waveId && this.nextQuestion());
   }
 
+  // Say which single-use shop items this round uses, and how many are left.
+  announceBoosts() {
+    const used = [
+      this.boosts.time && `⏱ +${MORE_TIME_SECONDS} s (${this.shop.count('balloons-time')} left)`,
+      this.boosts.slow && `🎈 Slow balloons (${this.shop.count('balloons-slow')} left)`,
+    ].filter(Boolean);
+    if (!used.length) return;
+    this.boostText = this.add.text(W / 2, 150, `Using: ${used.join('   ')}`, {
+      fontFamily: FONT, fontSize: '22px', fontStyle: 'bold', color: '#fff7c2', stroke: '#1d3557', strokeThickness: 5,
+    }).setOrigin(0.5).setDepth(60);
+    this.tweens.add({ targets: this.boostText, alpha: 0, delay: 2500, duration: 600, onComplete: () => this.boostText.destroy() });
+  }
+
   floatText(x, y, label, color) {
     const txt = this.add.text(x, y, label, {
       fontFamily: FONT, fontSize: '30px', fontStyle: 'bold', color, stroke: '#1d3557', strokeThickness: 5,
@@ -616,6 +653,7 @@ export default class GameScene extends Phaser.Scene {
     const origin = this.launchPoint();
     const body = this.balloonBody(target);
     const arrow = this.add.image(origin.x, origin.y, 'arrow').setScale(ARROW_SCALE).setDepth(35);
+    if (this.shop.has('balloons-fire')) arrow.setTint(FIRE_TINT);
     arrow.halfLength = (arrow.width / 2) * ARROW_SCALE;
     arrow.age = 0;
     arrow.stuck = false;
