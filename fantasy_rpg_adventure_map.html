@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Realm of Aethelgard - Interactive Fantasy Map</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts for Fantasy Cartography aesthetic -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=MedievalSharp&family=Quicksand:wght@400;600&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Quicksand', sans-serif;
+            background-color: #0d0f12;
+            color: #e2e8f0;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .font-fantasy {
+            font-family: 'Cinzel', serif;
+        }
+
+        .font-serif-medieval {
+            font-family: 'MedievalSharp', cursive;
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #a16207;
+            border-radius: 4px;
+        }
+
+        /* Vintage Parchment Overlay effect */
+        .parchment-border {
+            box-shadow: inset 0 0 80px rgba(78, 42, 12, 0.7), inset 0 0 20px rgba(0, 0, 0, 0.8);
+            pointer-events: none;
+        }
+
+        /* Glowing UI elements */
+        .glow-gold {
+            box-shadow: 0 0 15px rgba(217, 119, 6, 0.4);
+        }
+
+        /* Pulsing map markers */
+        @keyframes pulse-marker {
+            0% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(255,215,0,0.8)); }
+            50% { transform: scale(1.15); filter: drop-shadow(0 0 8px rgba(255,215,0,1)); }
+            100% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(255,215,0,0.8)); }
+        }
+
+        .animated-marker {
+            animation: pulse-marker 2s infinite ease-in-out;
+        }
+
+        /* Onscreen D-Pad Styling */
+        .dpad-btn {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            border: 1px solid #78350f;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+            transition: all 0.15s ease;
+        }
+        .dpad-btn:active {
+            transform: scale(0.92);
+            background: #b45309;
+        }
+
+        /* Modal backdrop glassmorphism */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.88);
+            backdrop-filter: blur(8px);
+            border: 1px solid #b45309;
+        }
+    </style>
+</head>
+<body class="w-screen h-screen flex flex-col justify-between relative overflow-hidden select-none">
+
+    <!-- Top Navigation Header -->
+    <header class="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-6 py-3 bg-slate-900/90 border-b border-amber-800/60 backdrop-blur-md shadow-lg">
+        <div class="flex items-center gap-3">
+            <i class="fa-solid fa-map-location-dot text-2xl text-amber-500"></i>
+            <div>
+                <h1 class="font-fantasy text-xl font-bold tracking-wider text-amber-100 flex items-center gap-2">
+                    THE REALM OF AETHELGARD
+                </h1>
+                <p class="text-xs text-amber-400/80 font-serif-medieval">Cartographer's Interactive World Map</p>
+            </div>
+        </div>
+
+        <!-- Quick Stats / Controls Summary -->
+        <div class="hidden md:flex items-center gap-6 text-sm text-slate-300">
+            <div class="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700">
+                <i class="fa-solid fa-person-walking text-amber-400"></i>
+                <span id="player-zone-text" class="font-medium text-amber-200">Whispering Woods</span>
+            </div>
+            <div class="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700">
+                <i class="fa-solid fa-[#f59e0b] fa-compass text-amber-400"></i>
+                <span id="coords-display" class="font-mono text-xs">X: 1200, Y: 800</span>
+            </div>
+        </div>
+
+        <!-- Map Controls Header Actions -->
+        <div class="flex items-center gap-2">
+            <button id="btn-toggle-fog" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-700/50 rounded-lg text-xs font-semibold flex items-center gap-2 transition">
+                <i class="fa-solid fa-eye-slash"></i>
+                <span class="hidden sm:inline">Fog of War</span>
+            </button>
+            <button id="btn-toggle-parchment" class="px-3 py-1.5 bg-amber-900/40 hover:bg-amber-800/60 text-amber-200 border border-amber-600/60 rounded-lg text-xs font-semibold flex items-center gap-2 transition">
+                <i class="fa-solid fa-scroll"></i>
+                <span class="hidden sm:inline">Parchment Style</span>
+            </button>
+            <button id="btn-recenter" class="p-2 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 rounded-lg text-xs transition" title="Recenter on Player">
+                <i class="fa-solid fa-crosshairs text-base"></i>
+            </button>
+            <button id="btn-help" class="p-2 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 rounded-lg text-xs transition" title="Help & Info">
+                <i class="fa-solid fa-circle-question text-base"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Interactive Map Canvas Container -->
+    <main id="map-container" class="relative w-full h-full cursor-grab active:cursor-grabbing overflow-hidden bg-slate-950">
+        <!-- Canvas Element for dynamic map rendering -->
+        <canvas id="world-canvas" class="absolute top-0 left-0 w-full h-full block"></canvas>
+
+        <!-- Parchment Border Vignette Overlay -->
+        <div id="parchment-overlay" class="absolute inset-0 parchment-border transition-opacity duration-500 opacity-90 pointer-events-none"></div>
+
+        <!-- Decorative Compass Rose -->
+        <div class="absolute bottom-6 right-6 pointer-events-none z-10 opacity-80 hidden sm:block">
+            <div class="relative w-28 h-28 flex items-center justify-center">
+                <!-- Outer compass ring -->
+                <svg viewBox="0 0 100 100" class="w-full h-full text-amber-600/60">
+                    <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 2" />
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" stroke-width="1" />
+                    <text x="50" y="14" text-anchor="middle" fill="#f59e0b" font-size="10" font-family="Cinzel" font-weight="bold">N</text>
+                    <text x="50" y="93" text-anchor="middle" fill="#d97706" font-size="9" font-family="Cinzel">S</text>
+                    <text x="90" y="53" text-anchor="middle" fill="#d97706" font-size="9" font-family="Cinzel">E</text>
+                    <text x="10" y="53" text-anchor="middle" fill="#d97706" font-size="9" font-family="Cinzel">W</text>
+                    <!-- Compass Star -->
+                    <polygon points="50,18 54,46 82,50 54,54 50,82 46,54 18,50 46,46" fill="rgba(217, 119, 6, 0.25)" stroke="#d97706" stroke-width="1"/>
+                    <polygon points="50,18 54,46 50,50" fill="#f59e0b"/>
+                    <polygon points="50,82 46,54 50,50" fill="#f59e0b"/>
+                    <polygon points="82,50 54,54 50,50" fill="#b45309"/>
+                    <polygon points="18,50 46,46 50,50" fill="#b45309"/>
+                </svg>
+            </div>
+        </div>
+
+        <!-- On-screen Navigation Controls / D-Pad (Touch & Mouse accessible) -->
+        <div class="absolute bottom-6 left-6 z-20 flex flex-col items-center bg-slate-900/80 p-3 rounded-2xl border border-amber-900/50 backdrop-blur-md shadow-2xl">
+            <span class="text-[10px] text-amber-400 font-fantasy mb-1">NAVIGATE</span>
+            <div class="grid grid-cols-3 gap-1.5 w-28 h-28">
+                <div></div>
+                <button id="dpad-up" class="dpad-btn rounded-t-lg flex items-center justify-center text-amber-300"><i class="fa-solid fa-chevron-up"></i></button>
+                <div></div>
+                <button id="dpad-left" class="dpad-btn rounded-l-lg flex items-center justify-center text-amber-300"><i class="fa-solid fa-chevron-left"></i></button>
+                <button id="dpad-center" class="dpad-btn flex items-center justify-center text-amber-400 text-xs font-bold" title="Speed Boost Toggle"><i class="fa-solid fa-bolt"></i></button>
+                <button id="dpad-right" class="dpad-btn rounded-r-lg flex items-center justify-center text-amber-300"><i class="fa-solid fa-chevron-right"></i></button>
+                <div></div>
+                <button id="dpad-down" class="dpad-btn rounded-b-lg flex items-center justify-center text-amber-300"><i class="fa-solid fa-chevron-down"></i></button>
+                <div></div>
+            </div>
+        </div>
+
+        <!-- Zoom Controls Floating Bar -->
+        <div class="absolute top-20 right-6 z-20 flex flex-col gap-2 bg-slate-900/80 p-2 rounded-xl border border-amber-900/40 backdrop-blur-md shadow-lg">
+            <button id="btn-zoom-in" class="w-9 h-9 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-lg flex items-center justify-center border border-amber-700/40 transition">
+                <i class="fa-solid fa-plus"></i>
+            </button>
+            <button id="btn-zoom-out" class="w-9 h-9 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-lg flex items-center justify-center border border-amber-700/40 transition">
+                <i class="fa-solid fa-minus"></i>
+            </button>
+            <hr class="border-slate-700/80 my-0.5">
+            <button id="btn-toggle-legend" class="w-9 h-9 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-lg flex items-center justify-center border border-amber-700/40 transition" title="Toggle Map Legend">
+                <i class="fa-solid fa-list-ul"></i>
+            </button>
+        </div>
+
+        <!-- Map Legend Overlay Drawer -->
+        <div id="map-legend" class="absolute top-20 left-6 z-20 w-64 glass-panel rounded-xl p-4 shadow-2xl transition-all duration-300 transform -translate-x-full opacity-0 pointer-events-none">
+            <div class="flex items-center justify-between border-b border-amber-800/60 pb-2 mb-3">
+                <h3 class="font-fantasy text-amber-200 font-bold text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-map-pin text-amber-500"></i> Map Regions & Key
+                </h3>
+                <button id="btn-close-legend" class="text-slate-400 hover:text-white text-xs"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="space-y-2.5 text-xs text-slate-300">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-3.5 h-3.5 rounded-full bg-blue-600 border border-cyan-300 inline-block"></span>
+                    <div>
+                        <p class="font-semibold text-cyan-200">Siren's Abyss Lake</p>
+                        <p class="text-[10px] text-slate-400">Deep waters inhabited by apex shadow sharks.</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2.5">
+                    <span class="w-3.5 h-3.5 rounded-full bg-red-600 border border-orange-400 inline-block"></span>
+                    <div>
+                        <p class="font-semibold text-orange-300">The Obsidian Wastes</p>
+                        <p class="text-[10px] text-slate-400">Pulsing magma river & fiery molten pits.</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2.5">
+                    <span class="w-3.5 h-3.5 rounded-full bg-purple-500 border border-pink-300 inline-block"></span>
+                    <div>
+                        <p class="font-semibold text-purple-200">Aetheria Festival</p>
+                        <p class="text-[10px] text-slate-400">Floating hot air balloons & festive magic.</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2.5">
+                    <span class="w-3.5 h-3.5 rounded-full bg-emerald-700 border border-emerald-400 inline-block"></span>
+                    <div>
+                        <p class="font-semibold text-emerald-300">Whispering Woods</p>
+                        <p class="text-[10px] text-slate-400">Dense ancient evergreen canopy & ruins.</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2.5">
+                    <span class="w-3.5 h-3.5 rounded-full bg-amber-700 border border-amber-400 inline-block"></span>
+                    <div>
+                        <p class="font-semibold text-amber-200">Ironclad Peaks</p>
+                        <p class="text-[10px] text-slate-400">Towering mountain range & cliff paths.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-3 pt-2 border-t border-slate-700/60 text-[10px] text-amber-400/80 text-center font-serif-medieval">
+                Click map icons or travel close to inspect points of interest.
+            </div>
+        </div>
+
+        <!-- Mini Map Component in Top-Right or Bottom-Right -->
+        <div class="absolute bottom-6 right-20 sm:right-36 z-20 hidden md:block">
+            <div class="relative w-36 h-36 bg-slate-900 border-2 border-amber-700/80 rounded-xl overflow-hidden shadow-2xl">
+                <canvas id="minimap-canvas" class="w-full h-full block"></canvas>
+                <div class="absolute inset-0 pointer-events-none border border-amber-500/20 rounded-xl"></div>
+                <span class="absolute top-1 left-1.5 text-[9px] font-fantasy text-amber-300/90 bg-slate-900/80 px-1 rounded">MINIMAP</span>
+            </div>
+        </div>
+    </main>
+
+    <!-- Point of Interest Lore / Detail Modal -->
+    <div id="poi-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm opacity-0 pointer-events-none transition-all duration-300">
+        <div class="w-full max-w-md glass-panel rounded-2xl p-6 shadow-2xl border-2 border-amber-600/80 transform scale-95 transition-transform duration-300" id="poi-modal-card">
+            <div class="flex items-start justify-between border-b border-amber-700/50 pb-3 mb-4">
+                <div class="flex items-center gap-3">
+                    <div id="poi-icon-box" class="w-10 h-10 rounded-xl bg-amber-900/50 border border-amber-500 flex items-center justify-center text-amber-300 text-xl">
+                        <i class="fa-solid fa-location-dot"></i>
+                    </div>
+                    <div>
+                        <h2 id="poi-title" class="font-fantasy text-lg font-bold text-amber-100">Location Title</h2>
+                        <span id="poi-subtitle" class="text-xs text-amber-400 font-serif-medieval">Region Subtitle</span>
+                    </div>
+                </div>
+                <button id="poi-close-btn" class="text-slate-400 hover:text-amber-300 transition text-lg p-1">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3">
+                <p id="poi-description" class="text-sm text-slate-300 leading-relaxed">
+                    Lore description of the selected region or landmark goes here...
+                </p>
+
+                <!-- Interactive Lore Details Extra Box -->
+                <div class="bg-slate-900/80 rounded-xl p-3 border border-amber-900/40 text-xs text-slate-400 space-y-1">
+                    <div class="flex justify-between">
+                        <span class="text-amber-500 font-semibold">Danger Level:</span>
+                        <span id="poi-danger" class="text-slate-200">Moderate</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-amber-500 font-semibold">Native Fauna:</span>
+                        <span id="poi-fauna" class="text-slate-200">Various</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-amber-500 font-semibold">Map Coordinate:</span>
+                        <span id="poi-coords" class="font-mono text-amber-300">X: 0, Y: 0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-5 flex justify-end gap-3">
+                <button id="poi-teleport-btn" class="px-4 py-2 bg-gradient-to-r from-amber-700 to-amber-600 hover:from-amber-600 hover:to-amber-500 text-amber-950 font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg transition">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Fast Travel Here
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help & Guide Modal -->
+    <div id="help-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm opacity-0 pointer-events-none transition-all duration-300">
+        <div class="w-full max-w-lg glass-panel rounded-2xl p-6 shadow-2xl border border-amber-600/60">
+            <div class="flex items-center justify-between border-b border-amber-700/50 pb-3 mb-4">
+                <h3 class="font-fantasy text-lg font-bold text-amber-200 flex items-center gap-2">
+                    <i class="fa-solid fa-compass text-amber-500"></i> Explorer's Guide
+                </h3>
+                <button id="help-close-btn" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-4 text-xs text-slate-300 leading-relaxed">
+                <div>
+                    <h4 class="font-bold text-amber-400 text-sm mb-1"><i class="fa-solid fa-keyboard mr-1"></i> Player Movement & Controls</h4>
+                    <p>• Move player using <kbd class="px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded text-amber-200">WASD</kbd> or <kbd class="px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded text-amber-200">Arrow Keys</kbd>.</p>
+                    <p>• Alternatively, use the touch D-Pad at the bottom left or **click/tap directly anywhere on the map** to walk to that spot.</p>
+                </div>
+                <div>
+                    <h4 class="font-bold text-amber-400 text-sm mb-1"><i class="fa-solid fa-hand-pointer mr-1"></i> Map Navigation & View</h4>
+                    <p>• **Drag / Pan**: Click and drag with mouse or touch gesture to pan camera.</p>
+                    <p>• **Zoom**: Scroll wheel or use the <i class="fa-solid fa-plus text-amber-400"></i> / <i class="fa-solid fa-minus text-amber-400"></i> zoom buttons.</p>
+                    <p>• **Points of Interest**: Click landmark icons directly on map to open lore details.</p>
+                </div>
+                <div>
+                    <h4 class="font-bold text-amber-400 text-sm mb-1"><i class="fa-solid fa-hat-wizard mr-1"></i> Biome Highlights</h4>
+                    <p>• 🦈 **Siren's Lake**: Watch sharks swim dynamically in circular patterns.</p>
+                    <p>• 🌋 **Obsidian Wastes**: Pulsing magma heat glow & flowing lava rivers.</p>
+                    <p>• 🎈 **Aetheria Sky Festival**: Hot air balloons bob and float above the landscape.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // --- GAME MAP ENGINE & STATE ---
+        const WORLD_WIDTH = 2800;
+        const WORLD_HEIGHT = 2000;
+
+        // State variables
+        const state = {
+            camera: { x: 400, y: 300, zoom: 0.85 },
+            player: { x: 1400, y: 1000, speed: 4, targetX: null, targetY: null, isMoving: false, angle: 0, sprint: false },
+            fogOfWarEnabled: true,
+            parchmentStyle: true,
+            isDragging: false,
+            dragStart: { x: 0, y: 0 },
+            keys: {},
+            activePoi: null,
+            time: 0
+        };
+
+        // Biome and Landmark Definitions
+        const landmarks = [
+            {
+                id: 'shark-lake',
+                name: "Siren's Abyss & Shark Bay",
+                subtitle: "Azure Water Depths",
+                x: 650,
+                y: 550,
+                icon: "fa-water",
+                color: "#0284c7",
+                danger: "High (Predatory Aquatic Wildlife)",
+                fauna: "Apex Shadow Sharks, Giant Kraken",
+                desc: "A massive crystal-clear lake surrounded by steep fjords. Beneath its pristine blue surface, ferocious Shadow Sharks patrol the waters in endless search of prey. Ancient water magic holds the lake in perpetual calm."
+            },
+            {
+                id: 'lava-fields',
+                name: "Obsidian Wastes & Molten Core",
+                subtitle: "Volcanic Wasteland",
+                x: 2150,
+                y: 1450,
+                icon: "fa-volcano",
+                color: "#ef4444",
+                danger: "Extreme (Heat & Magma Rivers)",
+                fauna: "Fire Salamanders, Lava Elementals",
+                desc: "An intensely hot volcanic rift where rivers of glowing liquid magma carve through black basalt stone. Cracks in the earth pulse with subterranean thermal heat and glowing embers rise continually into the dark sky."
+            },
+            {
+                id: 'balloon-festival',
+                name: "Aetheria Sky Meadows",
+                subtitle: "Floating Festival Haven",
+                x: 2050,
+                y: 500,
+                icon: "fa-plane-departure",
+                color: "#a855f7",
+                danger: "Low (Peaceful Sanctuary)",
+                fauna: "Sky Rays, Carrier Pigeons",
+                desc: "High up on grassy cliff plains, the annual Grand Sky Festival takes place. Intricately designed hot air balloons and spellbound lanterns hover in the gentle crosswinds while music rings through the mountain air."
+            },
+            {
+                id: 'whispering-forest',
+                name: "Whispering Sylva Forest",
+                subtitle: "Ancient Canopy",
+                x: 800,
+                y: 1350,
+                icon: "fa-tree",
+                color: "#10b981",
+                danger: "Moderate (Will-o'-wisps)",
+                fauna: "Sylvan Stags, Runebears",
+                desc: "Dense, primeval forest covered in glowing moss and giant ancient oak trees. Luminescent mushrooms light up mossy stone paths leading to forgotten druid shrines."
+            },
+            {
+                id: 'iron-peaks',
+                name: "Frost-Vein Mountains",
+                subtitle: "Towering Summit",
+                x: 1400,
+                y: 300,
+                icon: "fa-mountain",
+                color: "#f59e0b",
+                danger: "High (Blizzards & Heights)",
+                fauna: "Snow Leopards, Frost Wyrms",
+                desc: "Formidable mountain ridge separating the northern tundra from the central vales. Ancient stone bridges bridge treacherous chasms high above the clouds."
+            },
+            {
+                id: 'ancient-ruins',
+                name: "Sunken Citadel Ruins",
+                subtitle: "Forgotten Empire",
+                x: 1400,
+                y: 1100,
+                icon: "fa-archway",
+                color: "#eab308",
+                danger: "Uncertain (Crypt Hazards)",
+                fauna: "Gargoyles, Arcane Constructs",
+                desc: "The central crossroads of Aethelgard. Once the crown jewel of an ancient empire, now stone arches and cobblestone roads weave past crumbling monuments overgrown with ivy."
+            }
+        ];
+
+        // Animated Entities (Sharks & Floating Balloons)
+        const sharks = [
+            { centerX: 650, centerY: 550, radiusX: 180, radiusY: 120, angle: 0, speed: 0.012, size: 22 },
+            { centerX: 620, centerY: 580, radiusX: 120, radiusY: 80, angle: Math.PI, speed: 0.018, size: 18 },
+            { centerX: 700, centerY: 520, radiusX: 220, radiusY: 150, angle: Math.PI / 2, speed: 0.009, size: 26 },
+            { centerX: 580, centerY: 510, radiusX: 90, radiusY: 90, angle: Math.PI * 1.5, speed: 0.022, size: 16 }
+        ];
+
+        const balloons = [
+            { x: 1950, y: 450, baseScale: 1.1, floatOffset: 0, color: '#f43f5e', basketColor: '#78350f', label: "Sunseeker" },
+            { x: 2180, y: 520, baseScale: 0.9, floatOffset: 2, color: '#8b5cf6', basketColor: '#451a03', label: "Aether Star" },
+            { x: 2020, y: 600, baseScale: 1.2, floatOffset: 4, color: '#0ea5e9', basketColor: '#78350f', label: "Cloud Hopper" },
+            { x: 2250, y: 400, baseScale: 0.8, floatOffset: 1.5, color: '#eab308', basketColor: '#451a03', label: "Zephyr" },
+            { x: 1850, y: 580, baseScale: 1.0, floatOffset: 3.2, color: '#10b981', basketColor: '#78350f', label: "Verdant Breeze" }
+        ];
+
+        // Fog of War Discovered Grid
+        const FOG_TILE_SIZE = 80;
+        const fogCols = Math.ceil(WORLD_WIDTH / FOG_TILE_SIZE);
+        const fogRows = Math.ceil(WORLD_HEIGHT / FOG_TILE_SIZE);
+        const fogGrid = Array(fogRows).fill(null).map(() => Array(fogCols).fill(false));
+
+        // --- DOM ELEMENTS ---
+        const canvas = document.getElementById('world-canvas');
+        const ctx = canvas.getContext('2d');
+        const minimapCanvas = document.getElementById('minimap-canvas');
+        const minimapCtx = minimapCanvas.getContext('2d');
+        const container = document.getElementById('map-container');
+
+        // --- SETUP & CANVAS RESIZING ---
+        function resizeCanvas() {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            minimapCanvas.width = 150;
+            minimapCanvas.height = 150;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Initial camera positioning centered on player
+        state.camera.x = state.player.x - canvas.width / (2 * state.camera.zoom);
+        state.camera.y = state.player.y - canvas.height / (2 * state.camera.zoom);
+
+        // --- FOG OF WAR LOGIC ---
+        function updateFogOfWar() {
+            const revealRadius = 380; // Distance visible around player
+            const startCol = Math.max(0, Math.floor((state.player.x - revealRadius) / FOG_TILE_SIZE));
+            const endCol = Math.min(fogCols - 1, Math.floor((state.player.x + revealRadius) / FOG_TILE_SIZE));
+            const startRow = Math.max(0, Math.floor((state.player.y - revealRadius) / FOG_TILE_SIZE));
+            const endRow = Math.min(fogRows - 1, Math.floor((state.player.y + revealRadius) / FOG_TILE_SIZE));
+
+            for (let r = startRow; r <= endRow; r++) {
+                for (let c = startCol; c <= endCol; c++) {
+                    const tileCenterX = c * FOG_TILE_SIZE + FOG_TILE_SIZE / 2;
+                    const tileCenterY = r * FOG_TILE_SIZE + FOG_TILE_SIZE / 2;
+                    const dist = Math.hypot(tileCenterX - state.player.x, tileCenterY - state.player.y);
+                    if (dist < revealRadius) {
+                        fogGrid[r][c] = true;
+                    }
+                }
+            }
+        }
+
+        // --- DRAWING RENDERING HELPERS ---
+        
+        // 1. Terrain & Biome Painting
+        function drawWorldTerrain() {
+            // Base background grassland / parchment texture
+            ctx.fillStyle = state.parchmentStyle ? '#dcc498' : '#1e293b';
+            ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+            // Subtle Grid overlay for map aesthetics
+            ctx.strokeStyle = state.parchmentStyle ? 'rgba(120, 53, 15, 0.08)' : 'rgba(255, 255, 255, 0.04)';
+            ctx.lineWidth = 1;
+            const gridSize = 100;
+            for (let x = 0; x < WORLD_WIDTH; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, WORLD_HEIGHT);
+                ctx.stroke();
+            }
+            for (let y = 0; y < WORLD_HEIGHT; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(WORLD_WIDTH, y);
+                ctx.stroke();
+            }
+
+            // BIOME 1: Siren's Lake (Water Body)
+            ctx.save();
+            ctx.beginPath();
+            ctx.ellipse(650, 550, 360, 240, 0, 0, Math.PI * 2);
+            const lakeGrad = ctx.createRadialGradient(650, 550, 50, 650, 550, 360);
+            if (state.parchmentStyle) {
+                lakeGrad.addColorStop(0, '#38bdf8');
+                lakeGrad.addColorStop(0.7, '#0284c7');
+                lakeGrad.addColorStop(1, '#0369a1');
+            } else {
+                lakeGrad.addColorStop(0, '#0284c7');
+                lakeGrad.addColorStop(1, '#0c4a6e');
+            }
+            ctx.fillStyle = lakeGrad;
+            ctx.fill();
+            ctx.strokeStyle = state.parchmentStyle ? '#0369a1' : '#38bdf8';
+            ctx.lineWidth = 6;
+            ctx.stroke();
+
+            // Water Ripple Lines
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+            ctx.lineWidth = 2;
+            for (let i = 1; i <= 3; i++) {
+                ctx.beginPath();
+                const r = (state.time * 20 + i * 80) % 300;
+                ctx.ellipse(650, 550, r, r * 0.65, 0, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            // BIOME 2: Obsidian Lava Fields
+            ctx.save();
+            ctx.beginPath();
+            ctx.ellipse(2150, 1450, 420, 300, -0.2, 0, Math.PI * 2);
+            const lavaFieldGrad = ctx.createRadialGradient(2150, 1450, 40, 2150, 1450, 420);
+            lavaFieldGrad.addColorStop(0, '#18181b');
+            lavaFieldGrad.addColorStop(0.8, '#27272a');
+            lavaFieldGrad.addColorStop(1, '#1e293b');
+            ctx.fillStyle = lavaFieldGrad;
+            ctx.fill();
+
+            // Molten Lava River
+            ctx.beginPath();
+            ctx.moveTo(1800, 1300);
+            ctx.bezierCurveTo(1980, 1420, 2100, 1380, 2250, 1500);
+            ctx.bezierCurveTo(2350, 1580, 2450, 1400, 2550, 1600);
+            
+            const pulseGlow = Math.sin(state.time * 3) * 0.2 + 0.8;
+            ctx.strokeStyle = `rgba(239, 68, 68, ${pulseGlow})`;
+            ctx.lineWidth = 28;
+            ctx.stroke();
+            ctx.strokeStyle = `rgba(251, 146, 60, ${pulseGlow})`;
+            ctx.lineWidth = 14;
+            ctx.stroke();
+            ctx.strokeStyle = '#fef08a';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            // Pulsing Lava Pools
+            const pools = [
+                { x: 2000, y: 1520, r: 45 },
+                { x: 2300, y: 1380, r: 60 },
+                { x: 2180, y: 1600, r: 35 }
+            ];
+            pools.forEach(p => {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                const pGrad = ctx.createRadialGradient(p.x, p.y, 5, p.x, p.y, p.r);
+                pGrad.addColorStop(0, '#fef08a');
+                pGrad.addColorStop(0.5, '#f97316');
+                pGrad.addColorStop(1, '#b91c1c');
+                ctx.fillStyle = pGrad;
+                ctx.fill();
+            });
+            ctx.restore();
+
+            // BIOME 3: Whispering Woods Forest (Trees)
+            ctx.save();
+            const forestTrees = [
+                { x: 600, y: 1200 }, { x: 680, y: 1250 }, { x: 750, y: 1180 }, { x: 840, y: 1260 },
+                { x: 920, y: 1200 }, { x: 620, y: 1340 }, { x: 720, y: 1380 }, { x: 810, y: 1350 },
+                { x: 900, y: 1420 }, { x: 980, y: 1320 }, { x: 760, y: 1480 }, { x: 860, y: 1520 },
+                { x: 650, y: 1460 }, { x: 1040, y: 1250 }, { x: 1000, y: 1400 }
+            ];
+            forestTrees.forEach(t => {
+                // Tree Shadow
+                ctx.beginPath();
+                ctx.ellipse(t.x, t.y + 12, 16, 8, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0,0,0,0.25)';
+                ctx.fill();
+
+                // Tree Canopy
+                ctx.beginPath();
+                ctx.arc(t.x, t.y - 10, 22, 0, Math.PI * 2);
+                ctx.fillStyle = state.parchmentStyle ? '#15803d' : '#059669';
+                ctx.fill();
+                ctx.strokeStyle = '#064e3b';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Inner detail
+                ctx.beginPath();
+                ctx.arc(t.x - 4, t.y - 14, 12, 0, Math.PI * 2);
+                ctx.fillStyle = state.parchmentStyle ? '#22c55e' : '#10b981';
+                ctx.fill();
+            });
+            ctx.restore();
+
+            // BIOME 4: Ironclad Mountain Peaks
+            ctx.save();
+            const mountains = [
+                { x: 1200, y: 350, size: 70 }, { x: 1320, y: 280, size: 90 },
+                { x: 1450, y: 320, size: 100 }, { x: 1580, y: 270, size: 85 },
+                { x: 1680, y: 360, size: 65 }
+            ];
+            mountains.forEach(m => {
+                ctx.beginPath();
+                ctx.moveTo(m.x - m.size, m.y + m.size * 0.7);
+                ctx.lineTo(m.x, m.y - m.size);
+                ctx.lineTo(m.x + m.size, m.y + m.size * 0.7);
+                ctx.closePath();
+                ctx.fillStyle = state.parchmentStyle ? '#78350f' : '#475569';
+                ctx.fill();
+                ctx.strokeStyle = state.parchmentStyle ? '#451a03' : '#1e293b';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // Snow Peak / Highlight
+                ctx.beginPath();
+                ctx.moveTo(m.x, m.y - m.size);
+                ctx.lineTo(m.x - m.size * 0.3, m.y - m.size * 0.3);
+                ctx.lineTo(m.x + m.size * 0.3, m.y - m.size * 0.3);
+                ctx.closePath();
+                ctx.fillStyle = '#f8fafc';
+                ctx.fill();
+            });
+            ctx.restore();
+
+            // Ancient Dirt Paths & Roads connecting biomes
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(1400, 1100); // Center ruins
+            ctx.quadraticCurveTo(1000, 1000, 650, 790); // To Lake
+            ctx.moveTo(1400, 1100);
+            ctx.quadraticCurveTo(1800, 1250, 2150, 1350); // To Lava
+            ctx.moveTo(1400, 1100);
+            ctx.quadraticCurveTo(1700, 750, 2050, 600); // To Festival
+            ctx.moveTo(1400, 1100);
+            ctx.quadraticCurveTo(1000, 1250, 800, 1350); // To Forest
+            
+            ctx.strokeStyle = state.parchmentStyle ? 'rgba(120, 53, 15, 0.6)' : 'rgba(217, 119, 6, 0.4)';
+            ctx.lineWidth = 8;
+            ctx.setLineDash([12, 10]);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // 2. Animated Swimming Sharks in Siren's Lake
+        function drawSharks() {
+            ctx.save();
+            sharks.forEach(s => {
+                s.angle += s.speed;
+                const x = s.centerX + Math.cos(s.angle) * s.radiusX;
+                const y = s.centerY + Math.sin(s.angle) * s.radiusY;
+                const tangentAngle = s.angle + Math.PI / 2;
+
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate(tangentAngle);
+
+                // Shark Body Outline
+                ctx.beginPath();
+                ctx.moveTo(0, -s.size);
+                ctx.quadraticCurveTo(s.size * 0.5, 0, s.size * 0.3, s.size);
+                ctx.lineTo(-s.size * 0.3, s.size);
+                ctx.quadraticCurveTo(-s.size * 0.5, 0, 0, -s.size);
+                ctx.fillStyle = '#1e293b';
+                ctx.fill();
+
+                // Shark Fin
+                ctx.beginPath();
+                ctx.moveTo(0, -s.size * 0.2);
+                ctx.lineTo(s.size * 0.6, s.size * 0.3);
+                ctx.lineTo(0, s.size * 0.2);
+                ctx.fillStyle = '#0f172a';
+                ctx.fill();
+
+                // Water wake trail behind shark
+                ctx.beginPath();
+                ctx.arc(0, s.size * 1.2, s.size * 0.4, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.fill();
+
+                ctx.restore();
+            });
+            ctx.restore();
+        }
+
+        // 3. Animated Floating Hot Air Balloons at Sky Meadow
+        function drawBalloons() {
+            ctx.save();
+            balloons.forEach((b, idx) => {
+                const floatY = b.y + Math.sin(state.time * 2 + b.floatOffset) * 15;
+                const scale = b.baseScale;
+
+                ctx.save();
+                ctx.translate(b.x, floatY);
+                ctx.scale(scale, scale);
+
+                // Ground Shadow
+                ctx.beginPath();
+                ctx.ellipse(0, 80 + (b.y - floatY), 22, 8, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+                ctx.fill();
+
+                // Basket Ropes
+                ctx.strokeStyle = '#451a03';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(-8, 15);
+                ctx.lineTo(-5, 30);
+                ctx.moveTo(8, 15);
+                ctx.lineTo(5, 30);
+                ctx.stroke();
+
+                // Woven Basket
+                ctx.fillStyle = b.basketColor;
+                ctx.fillRect(-7, 30, 14, 12);
+                ctx.strokeStyle = '#27272a';
+                ctx.strokeRect(-7, 30, 14, 12);
+
+                // Balloon Envelope / Canopy
+                ctx.beginPath();
+                ctx.arc(0, -10, 28, 0, Math.PI * 2);
+                ctx.fillStyle = b.color;
+                ctx.fill();
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Colorful Stripes on Balloon
+                ctx.beginPath();
+                ctx.ellipse(0, -10, 14, 28, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+                ctx.fill();
+
+                ctx.restore();
+            });
+            ctx.restore();
+        }
+
+        // 4. Landmarks Icons & Map Labels
+        function drawLandmarks() {
+            ctx.save();
+            landmarks.forEach(lm => {
+                // Marker Base Glow
+                ctx.beginPath();
+                ctx.arc(lm.x, lm.y, 20, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+                ctx.fill();
+                ctx.strokeStyle = lm.color;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // Center Icon Circle
+                ctx.beginPath();
+                ctx.arc(lm.x, lm.y, 14, 0, Math.PI * 2);
+                ctx.fillStyle = lm.color;
+                ctx.fill();
+
+                // Label Tag
+                ctx.font = 'bold 13px Cinzel, serif';
+                ctx.fillStyle = state.parchmentStyle ? '#451a03' : '#f8fafc';
+                ctx.textAlign = 'center';
+                ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                ctx.shadowBlur = 4;
+                ctx.fillText(lm.name, lm.x, lm.y + 36);
+                ctx.shadowBlur = 0;
+            });
+            ctx.restore();
+        }
+
+        // 5. Player Icon & Movement Marker
+        function drawPlayer() {
+            ctx.save();
+            const p = state.player;
+
+            // Target Movement Destination Marker
+            if (p.targetX !== null && p.targetY !== null) {
+                ctx.beginPath();
+                ctx.arc(p.targetX, p.targetY, 8 + Math.sin(state.time * 8) * 2, 0, Math.PI * 2);
+                ctx.strokeStyle = '#f59e0b';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            // Player Shadow
+            ctx.beginPath();
+            ctx.ellipse(p.x, p.y + 12, 14, 6, 0, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0,0,0,0.35)';
+            ctx.fill();
+
+            // Player Avatar Token
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 16, 0, Math.PI * 2);
+            ctx.fillStyle = '#f59e0b';
+            ctx.fill();
+            ctx.strokeStyle = '#fef3c7';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Inner Knight / Hero Symbol
+            ctx.fillStyle = '#78350f';
+            ctx.beginPath();
+            ctx.arc(p.x, p.y - 2, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // 6. Fog of War Overlay Mask
+        function drawFogOfWar() {
+            if (!state.fogOfWarEnabled) return;
+
+            ctx.save();
+            ctx.fillStyle = 'rgba(10, 15, 26, 0.92)';
+
+            for (let r = 0; r < fogRows; r++) {
+                for (let c = 0; c < fogCols; c++) {
+                    if (!fogGrid[r][c]) {
+                        ctx.fillRect(c * FOG_TILE_SIZE, r * FOG_TILE_SIZE, FOG_TILE_SIZE + 0.5, FOG_TILE_SIZE + 0.5);
+                    }
+                }
+            }
+            ctx.restore();
+        }
+
+        // --- MAIN RENDER LOOP ---
+        function render() {
+            state.time += 0.016; // Approx 60 FPS tick time
+
+            // Update Player Position from Inputs
+            updatePlayerLogic();
+            updateFogOfWar();
+
+            // Clear Screen
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Save Matrix for Zoom / Pan
+            ctx.save();
+            ctx.scale(state.camera.zoom, state.camera.zoom);
+            ctx.translate(-state.camera.x, -state.camera.y);
+
+            // Draw Layered World Elements
+            drawWorldTerrain();
+            drawSharks();
+            drawBalloons();
+            drawLandmarks();
+            drawPlayer();
+            drawFogOfWar();
+
+            ctx.restore();
+
+            // Draw Minimap
+            renderMinimap();
+
+            requestAnimationFrame(render);
+        }
+
+        // --- MINIMAP RENDERER ---
+        function renderMinimap() {
+            minimapCtx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height);
+
+            const scaleX = minimapCanvas.width / WORLD_WIDTH;
+            const scaleY = minimapCanvas.height / WORLD_HEIGHT;
+
+            // Background
+            minimapCtx.fillStyle = '#0f172a';
+            minimapCtx.fillRect(0, 0, minimapCanvas.width, minimapCanvas.height);
+
+            // Biome Dots on Minimap
+            // Lake
+            minimapCtx.fillStyle = '#0284c7';
+            minimapCtx.beginPath();
+            minimapCtx.arc(650 * scaleX, 550 * scaleY, 15, 0, Math.PI * 2);
+            minimapCtx.fill();
+
+            // Lava
+            minimapCtx.fillStyle = '#ef4444';
+            minimapCtx.beginPath();
+            minimapCtx.arc(2150 * scaleX, 1450 * scaleY, 18, 0, Math.PI * 2);
+            minimapCtx.fill();
+
+            // Balloons / Festival
+            minimapCtx.fillStyle = '#a855f7';
+            minimapCtx.beginPath();
+            minimapCtx.arc(2050 * scaleX, 500 * scaleY, 12, 0, Math.PI * 2);
+            minimapCtx.fill();
+
+            // Player Blip on Minimap
+            minimapCtx.fillStyle = '#f59e0b';
+            minimapCtx.beginPath();
+            minimapCtx.arc(state.player.x * scaleX, state.player.y * scaleY, 4, 0, Math.PI * 2);
+            minimapCtx.fill();
+
+            // Camera Viewport Rectangle on Minimap
+            const viewW = (canvas.width / state.camera.zoom) * scaleX;
+            const viewH = (canvas.height / state.camera.zoom) * scaleY;
+            const viewX = state.camera.x * scaleX;
+            const viewY = state.camera.y * scaleY;
+
+            minimapCtx.strokeStyle = 'rgba(245, 158, 11, 0.8)';
+            minimapCtx.lineWidth = 1.5;
+            minimapCtx.strokeRect(viewX, viewY, viewW, viewH);
+        }
+
+        // --- PLAYER LOGIC & CONTROLS ---
+        function updatePlayerLogic() {
+            const p = state.player;
+            let moveX = 0;
+            let moveY = 0;
+            const currentSpeed = p.sprint ? p.speed * 1.8 : p.speed;
+
+            // Keyboard Arrow/WASD Movement
+            if (state.keys['ArrowUp'] || state.keys['KeyW']) moveY -= 1;
+            if (state.keys['ArrowDown'] || state.keys['KeyS']) moveY += 1;
+            if (state.keys['ArrowLeft'] || state.keys['KeyA']) moveX -= 1;
+            if (state.keys['ArrowRight'] || state.keys['KeyD']) moveX += 1;
+
+            if (moveX !== 0 || moveY !== 0) {
+                // Cancel point-and-click target if manual keys are pressed
+                p.targetX = null;
+                p.targetY = null;
+
+                const length = Math.hypot(moveX, moveY);
+                p.x += (moveX / length) * currentSpeed;
+                p.y += (moveY / length) * currentSpeed;
+            } else if (p.targetX !== null && p.targetY !== null) {
+                // Point and Click Navigation
+                const dx = p.targetX - p.x;
+                const dy = p.targetY - p.y;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist > currentSpeed) {
+                    p.x += (dx / dist) * currentSpeed;
+                    p.y += (dy / dist) * currentSpeed;
+                } else {
+                    p.x = p.targetX;
+                    p.y = p.targetY;
+                    p.targetX = null;
+                    p.targetY = null;
+                }
+            }
+
+            // Clamp player within World Boundaries
+            p.x = Math.max(30, Math.min(WORLD_WIDTH - 30, p.x));
+            p.y = Math.max(30, Math.min(WORLD_HEIGHT - 30, p.y));
+
+            // Smooth Camera Follow Player Option (if not panning manually)
+            if (!state.isDragging) {
+                const targetCamX = p.x - canvas.width / (2 * state.camera.zoom);
+                const targetCamY = p.y - canvas.height / (2 * state.camera.zoom);
+                state.camera.x += (targetCamX - state.camera.x) * 0.1;
+                state.camera.y += (targetCamY - state.camera.y) * 0.1;
+            }
+
+            // Update UI Stats
+            document.getElementById('coords-display').innerText = `X: ${Math.round(p.x)}, Y: ${Math.round(p.y)}`;
+            
+            // Detect Current Biome Zone for UI
+            const closestLM = landmarks.find(lm => Math.hypot(lm.x - p.x, lm.y - p.y) < 300);
+            if (closestLM) {
+                document.getElementById('player-zone-text').innerText = closestLM.name;
+            } else {
+                document.getElementById('player-zone-text').innerText = "The Wild Uncharted Vales";
+            }
+        }
+
+        // --- INTERACTION EVENT LISTENERS ---
+
+        // Mouse Drag / Pan Logic
+        container.addEventListener('mousedown', (e) => {
+            if (e.button === 0) { // Left click
+                state.isDragging = true;
+                state.dragStart = { x: e.clientX, y: e.clientY };
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (state.isDragging) {
+                const dx = (e.clientX - state.dragStart.x) / state.camera.zoom;
+                const dy = (e.clientY - state.dragStart.y) / state.camera.zoom;
+                state.camera.x -= dx;
+                state.camera.y -= dy;
+                state.dragStart = { x: e.clientX, y: e.clientY };
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            state.isDragging = false;
+        });
+
+        // Click on Map for POI Lore or Player Movement
+        container.addEventListener('click', (e) => {
+            // Ignore click if user was dragging map
+            if (Math.hypot(e.clientX - state.dragStart.x, e.clientY - state.dragStart.y) > 10) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const clickCanvasX = e.clientX - rect.left;
+            const clickCanvasY = e.clientY - rect.top;
+
+            // Convert Screen Coordinates to World Coordinates
+            const worldX = clickCanvasX / state.camera.zoom + state.camera.x;
+            const worldY = clickCanvasY / state.camera.zoom + state.camera.y;
+
+            // Check if clicked near landmark
+            const clickedLM = landmarks.find(lm => Math.hypot(lm.x - worldX, lm.y - worldY) < 35);
+
+            if (clickedLM) {
+                openPoiModal(clickedLM);
+            } else {
+                // Move Player to Clicked World Location
+                state.player.targetX = worldX;
+                state.player.targetY = worldY;
+            }
+        });
+
+        // Zoom with Scroll Wheel
+        container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+            const newZoom = Math.max(0.4, Math.min(2.2, state.camera.zoom * zoomFactor));
+
+            // Zoom towards mouse pointer
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            state.camera.x += (mouseX / state.camera.zoom) - (mouseX / newZoom);
+            state.camera.y += (mouseY / state.camera.zoom) - (mouseY / newZoom);
+            state.camera.zoom = newZoom;
+        }, { passive: false });
+
+        // Keyboard Controls
+        window.addEventListener('keydown', (e) => {
+            state.keys[e.code] = true;
+            if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') state.player.sprint = true;
+        });
+
+        window.addEventListener('keyup', (e) => {
+            state.keys[e.code] = false;
+            if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') state.player.sprint = false;
+        });
+
+        // --- BUTTON HANDLERS & MODALS ---
+
+        // Zoom Buttons
+        document.getElementById('btn-zoom-in').onclick = () => {
+            state.camera.zoom = Math.min(2.2, state.camera.zoom * 1.25);
+        };
+        document.getElementById('btn-zoom-out').onclick = () => {
+            state.camera.zoom = Math.max(0.4, state.camera.zoom / 1.25);
+        };
+
+        // Recenter Button
+        document.getElementById('btn-recenter').onclick = () => {
+            state.camera.x = state.player.x - canvas.width / (2 * state.camera.zoom);
+            state.camera.y = state.player.y - canvas.height / (2 * state.camera.zoom);
+        };
+
+        // Toggle Fog of War
+        document.getElementById('btn-toggle-fog').onclick = () => {
+            state.fogOfWarEnabled = !state.fogOfWarEnabled;
+        };
+
+        // Toggle Parchment Style
+        document.getElementById('btn-toggle-parchment').onclick = () => {
+            state.parchmentStyle = !state.parchmentStyle;
+            document.getElementById('parchment-overlay').style.opacity = state.parchmentStyle ? '0.9' : '0';
+        };
+
+        // Legend Drawer Toggle
+        const legendEl = document.getElementById('map-legend');
+        document.getElementById('btn-toggle-legend').onclick = () => {
+            legendEl.classList.toggle('-translate-x-full');
+            legendEl.classList.toggle('opacity-0');
+            legendEl.classList.toggle('pointer-events-none');
+        };
+        document.getElementById('btn-close-legend').onclick = () => {
+            legendEl.classList.add('-translate-x-full', 'opacity-0', 'pointer-events-none');
+        };
+
+        // Help Modal
+        const helpModal = document.getElementById('help-modal');
+        document.getElementById('btn-help').onclick = () => {
+            helpModal.classList.remove('opacity-0', 'pointer-events-none');
+        };
+        document.getElementById('help-close-btn').onclick = () => {
+            helpModal.classList.add('opacity-0', 'pointer-events-none');
+        };
+
+        // POI Modal Logic
+        const poiModal = document.getElementById('poi-modal');
+        function openPoiModal(lm) {
+            state.activePoi = lm;
+            document.getElementById('poi-title').innerText = lm.name;
+            document.getElementById('poi-subtitle').innerText = lm.subtitle;
+            document.getElementById('poi-description').innerText = lm.desc;
+            document.getElementById('poi-danger').innerText = lm.danger;
+            document.getElementById('poi-fauna').innerText = lm.fauna;
+            document.getElementById('poi-coords').innerText = `X: ${lm.x}, Y: ${lm.y}`;
+
+            const iconBox = document.getElementById('poi-icon-box');
+            iconBox.style.borderColor = lm.color;
+            iconBox.innerHTML = `<i class="fa-solid ${lm.icon}" style="color: ${lm.color}"></i>`;
+
+            poiModal.classList.remove('opacity-0', 'pointer-events-none');
+        }
+
+        document.getElementById('poi-close-btn').onclick = () => {
+            poiModal.classList.add('opacity-0', 'pointer-events-none');
+        };
+
+        // Fast Travel / Teleport
+        document.getElementById('poi-teleport-btn').onclick = () => {
+            if (state.activePoi) {
+                state.player.x = state.activePoi.x;
+                state.player.y = state.activePoi.y + 60;
+                state.player.targetX = null;
+                state.player.targetY = null;
+                poiModal.classList.add('opacity-0', 'pointer-events-none');
+            }
+        };
+
+        // Touch On-Screen D-Pad Controls Setup
+        const dpadUp = document.getElementById('dpad-up');
+        const dpadDown = document.getElementById('dpad-down');
+        const dpadLeft = document.getElementById('dpad-left');
+        const dpadRight = document.getElementById('dpad-right');
+        const dpadCenter = document.getElementById('dpad-center');
+
+        const bindDpad = (btn, keyName) => {
+            const startHandler = (e) => { e.preventDefault(); state.keys[keyName] = true; };
+            const endHandler = (e) => { e.preventDefault(); state.keys[keyName] = false; };
+            btn.addEventListener('touchstart', startHandler);
+            btn.addEventListener('touchend', endHandler);
+            btn.addEventListener('mousedown', startHandler);
+            btn.addEventListener('mouseup', endHandler);
+            btn.addEventListener('mouseleave', endHandler);
+        };
+
+        bindDpad(dpadUp, 'KeyW');
+        bindDpad(dpadDown, 'KeyS');
+        bindDpad(dpadLeft, 'KeyA');
+        bindDpad(dpadRight, 'KeyD');
+
+        dpadCenter.onclick = () => {
+            state.player.sprint = !state.player.sprint;
+            dpadCenter.classList.toggle('text-amber-400');
+            dpadCenter.classList.toggle('text-emerald-400');
+        };
+
+        // Initial launch
+        render();
+    </script>
+</body>
+</html>

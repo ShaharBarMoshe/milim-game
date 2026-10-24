@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { pairs, useWords } from './words.js';
+import { playBalloons } from './play.js';
 
 const WORDS = pairs('dog=כלב', 'cat=חתול', 'sun=שמש');
 
@@ -115,8 +116,7 @@ test('typing the letters spells the word', async ({ page }) => {
 
 test('90% success in the balloon game unlocks the lava level', async ({ page }) => {
   await page.goto('/');
-  await page.locator('#word-start').click();
-  await page.waitForFunction(() => window.game.scene.getScene('game').state === 'playing');
+  await playBalloons(page);
   // 9 right and 1 wrong answer = 90%, then end the round.
   await page.evaluate(() => {
     const scene = window.game.scene.getScene('game');
@@ -143,8 +143,7 @@ test('90% success in the balloon game unlocks the lava level', async ({ page }) 
 
 test('escaped balloons keep the lava level locked even at 100% accuracy, and the end screen says why', async ({ page }) => {
   await page.goto('/');
-  await page.locator('#word-start').click();
-  await page.waitForFunction(() => window.game.scene.getScene('game').state === 'playing');
+  await playBalloons(page);
   // 8 right, 0 wrong, 2 escaped = 80% success.
   await page.evaluate(() => {
     const scene = window.game.scene.getScene('game');
@@ -165,8 +164,7 @@ test('escaped balloons keep the lava level locked even at 100% accuracy, and the
 
 test('Play again in the balloon game end screen starts a new round', async ({ page }) => {
   await page.goto('/');
-  await page.locator('#word-start').click();
-  await page.waitForFunction(() => window.game.scene.getScene('game').state === 'playing');
+  await playBalloons(page);
   await page.evaluate(() => window.game.scene.getScene('game').endRound());
   const pos = await (await page.waitForFunction(() => {
     const btn = window.game.scene.getScene('game').overlay?.list.find((o) => o.text === 'Play again');
@@ -177,3 +175,4 @@ test('Play again in the balloon game end screen starts a new round', async ({ pa
   await page.mouse.click(pos.x, pos.y);
   await page.waitForFunction(() => window.game.scene.getScene('game').state === 'playing', null, { timeout: 30_000 });
 });
+

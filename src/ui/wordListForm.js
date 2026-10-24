@@ -50,9 +50,9 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
             <option value="${DIRECTIONS.HE_EN}"></option>
           </select>
         </label>
-        <button type="submit" id="word-start">Start</button>
+        <button type="submit" id="word-start">To the map ➜</button>
       </div>
-      <p class="word-help">Click the balloon with the right translation. Ctrl+Enter starts.</p>
+      <p class="word-help">Next, choose a game on the map. Ctrl+Enter goes there too.</p>
     </div>`;
   document.body.appendChild(root);
 
@@ -282,11 +282,12 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
   });
   root.addEventListener('submit', (e) => {
     e.preventDefault();
+    const { id, name: listName, kind: listKind } = library.selected;
     const pairs = library.selected.pairs.map((p) => ({ ...p }));
     if (pairs.length < MIN_PAIRS) return;
     const dir = direction.value;
     hideWordListForm();
-    onStart?.(pairs, dir);
+    onStart?.(pairs, dir, { id, name: listName, kind: listKind });
   });
 
   render();

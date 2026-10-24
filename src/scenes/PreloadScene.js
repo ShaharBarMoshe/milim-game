@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { SAMPLE_PAIRS } from '../vocab.js';
+import { DIRECTIONS } from '../quiz.js';
 import { MIN_PAIRS, WordLibrary } from '../wordLists.js';
 
 export const BALLOON_COLORS = {
@@ -72,10 +73,12 @@ export default class PreloadScene extends Phaser.Scene {
     this.makeProceduralTextures();
     // ?level=lava jumps straight to the lava level with the chosen word list (handy for practice).
     if (new URLSearchParams(window.location.search).get('level') === 'lava') {
-      const { pairs } = WordLibrary.load().selected;
-      this.scene.start('lava', { pairs: pairs.length >= MIN_PAIRS ? pairs : SAMPLE_PAIRS });
+      const list = WordLibrary.load().selected;
+      const pairs = list.pairs.length >= MIN_PAIRS ? list.pairs : SAMPLE_PAIRS;
+      this.registry.set('words', { pairs, direction: DIRECTIONS.MIXED, listId: list.id, listName: list.name });
+      this.scene.start('lava', { pairs });
     } else {
-      this.scene.start('game');
+      this.scene.start('map');
     }
   }
 

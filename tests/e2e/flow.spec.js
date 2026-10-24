@@ -1,8 +1,8 @@
-// The whole journey between the screens: word lists → balloons (won) → lava (every word spelled)
-// → back to the word lists.
+// The whole journey between the screens: word lists → map → balloons (won) → lava (every word spelled)
+// → map → word lists.
 import { test, expect } from '@playwright/test';
 import { pairs, useWords } from './words.js';
-import { clickBalloon, clickButton, snapshot } from './play.js';
+import { clickBalloon, clickButton, playBalloons, snapshot } from './play.js';
 
 // Two short words keep the lava part (every word is spelled) quick.
 const WORDS = pairs('up=למעלה', 'go=לך');
@@ -29,12 +29,19 @@ const lavaScene = (page) =>
   });
 
 async function startBalloons(page) {
-  await page.locator('#word-start').click();
-  await expect(page.locator('#word-form')).toBeHidden();
-  await page.waitForFunction(() => {
-    const s = window.game.scene.getScene('game');
-    return s.state === 'playing' && s.balloons?.some((b) => b.isAnswer);
-  }, null, { timeout: 30_000 });
+  await playBalloons(page);
+  await page.waitForFunction(() => window.game.scene.getScene('game').balloons?.some((b) => b.isAnswer), null, { timeout: 30_000 });
+}
+
+// On the map: Change words opens the word list screen.
+async function changeWords(page) {
+  await page.waitForFunction(() => window.game.scene.getScene('map')?.state === 'map', null, { timeout: 30_000 });
+  const pos = await page.evaluate(() => {
+    const b = window.game.scene.getScene('map').changeButton.getBounds();
+    const r = window.game.canvas.getBoundingClientRect();
+    return { x: r.left + (b.centerX * r.width) / 1280, y: r.top + (b.centerY * r.height) / 720 };
+  });
+  await page.mouse.click(pos.x, pos.y);
 }
 
 // Shoot right balloons until the round is good enough for the lava level (5+ right, 90%+), then end it.
@@ -86,8 +93,9 @@ async function spellEveryWord(page) {
   }
 }
 
-// Back on the word list screen: pick another list and check a round starts with its words.
+// Map → Change words → a new list, and check a round starts with its words.
 async function playAnotherList(page) {
+  await changeWords(page);
   await expect(page.locator('#word-form')).toBeVisible({ timeout: 30_000 });
   await page.locator('#list-new').click();
   await page.locator('#add-en').fill('red');
@@ -101,7 +109,7 @@ async function playAnotherList(page) {
   expect(['red', 'blue', 'אדום', 'כחול']).toContain(current.prompt);
 }
 
-test('win the balloons → lava level → spell every word → back to the word lists', async ({ page }) => {
+test('win the balloons → lava level → spell every word → map → word lists', async ({ page }) => {
   test.setTimeout(300_000);
   await startBalloons(page);
   await winBalloonRound(page);
@@ -115,6 +123,6 @@ test('win the balloons → lava level → spell every word → back to the word 
   expect(end.wordIndex).toBe(WORDS.length);
   expect(await page.evaluate(() => window.game.scene.getScene('lava').children.list.some((o) => o.text === 'Lava master!'))).toBe(true);
 
-  await clickButton(page, 'lava', 'Balloons');
+  await clickButton(page, 'lava', 'Map');
   await playAnotherList(page);
 });

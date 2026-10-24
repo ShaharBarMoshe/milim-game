@@ -95,3 +95,37 @@ export async function clickButton(page, sceneKey, label) {
   ).jsonValue();
   await page.mouse.click(pos.x, pos.y);
 }
+
+// Page position of a place on the map.
+export async function mapSpot(page, key) {
+  await page.waitForFunction(() => window.game.scene.getScene('map')?.state === 'map', null, { timeout: 30_000 });
+  return page.evaluate(
+    ({ key, W, H }) => {
+      const s = window.game.scene.getScene('map').spots[key];
+      const r = window.game.canvas.getBoundingClientRect();
+      return { x: r.left + (s.x * r.width) / W, y: r.top + (s.y * r.height) / H };
+    },
+    { key, W: GAME_W, H: GAME_H },
+  );
+}
+
+export async function clickMapSpot(page, key) {
+  const { x, y } = await mapSpot(page, key);
+  await page.mouse.move(x, y);
+  await page.mouse.click(x, y);
+}
+
+// From the word list screen: go to the map and open Balloon Meadow.
+export async function playBalloons(page) {
+  await page.locator('#word-start').click();
+  await expect(page.locator('#word-form')).toBeHidden();
+  await clickMapSpot(page, 'balloons');
+  await page.waitForFunction(
+    () => {
+      const s = window.game.scene.getScene('game');
+      return window.game.scene.isActive('game') && s.state === 'playing' && s.quiz?.current && s.balloons?.length > 0;
+    },
+    null,
+    { timeout: 30_000 },
+  );
+}

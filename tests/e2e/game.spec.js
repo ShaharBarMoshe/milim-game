@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { pairs, useWords } from './words.js';
-import { clickBalloon, snapshot } from './play.js';
+import { clickBalloon, playBalloons, snapshot } from './play.js';
 
 const WORDS = pairs('dog=כלב', 'cat=חתול', 'house=בית', 'sun=שמש');
 
@@ -20,16 +20,7 @@ test.afterEach(() => {
 async function startGame(page, words = WORDS) {
   await useWords(page, words);
   await expect(page.locator('#word-form')).toBeVisible();
-  await page.locator('#word-start').click();
-  await expect(page.locator('#word-form')).toBeHidden();
-  await page.waitForFunction(
-    () => {
-      const s = window.game?.scene?.getScene('game');
-      return s && s.state === 'playing' && s.quiz?.current && Array.isArray(s.balloons) && s.balloons.length > 0;
-    },
-    null,
-    { timeout: 30_000 },
-  );
+  await playBalloons(page);
 }
 
 test('correct balloon scores, wrong balloon penalises and resets streak', async ({ page }) => {

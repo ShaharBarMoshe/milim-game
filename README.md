@@ -9,8 +9,8 @@ npm install
 npm run dev        # open the printed http://localhost URL
 ```
 
-1. **Word lists**: pick a list (Everyday words, Animals, Food, Home, School, Colors, or your own) and press **Start**
-   (needs at least 2 pairs; Ctrl+Enter works too). Pick a direction first if you like: Mixed by default (some questions
+1. **Word lists**: pick a list (Everyday words, Animals, Food, Home, School, Colors, Opposites, or your own) and press
+   **To the map** (needs at least 2 pairs; Ctrl+Enter works too). Pick a direction first if you like: Mixed by default (some questions
    show the English word, some the Hebrew), or English→Hebrew / Hebrew→English only.
    - **+ New list** makes an empty list; type its name in the name box.
    - Add a word by typing the English in one box and the Hebrew in the other (Enter moves on, Enter again adds).
@@ -19,12 +19,17 @@ npm run dev        # open the printed http://localhost URL
    - **🔓 Unlocked / 🔒 Locked** protects a list: a locked list can be played but not changed or deleted until unlocked.
    - **Delete list** asks for a second click. Every list, ready-made ones included, can be edited unless locked.
    - Everything is saved in the browser. A list typed in the old text box is kept as "My words".
-2. **Questions**: the banner shows a word and a wave of balloons rises with candidate translations.
+2. **The map**: an old parchment map of the Word Realm with a place for each game. Hover a place to mark it and read
+   what it is; click it to play. **Balloon Meadow** is the balloon game. **Lava Crossing** (the lava level) stays
+   locked until you win a balloon round (see below); after that it's open for every list, and the map
+   announces it the first time back. A Hebrew–Hebrew list
+   can't open it, since it spells English words. **✎ Change words** goes back to the word lists.
+3. **Questions**: the banner shows a word and a wave of balloons rises with candidate translations.
    - Click the right balloon: the arrow homes in and pops it. +10 points, plus 2 per answer in your current streak (up to +10).
    - Click a wrong balloon: the arrow flies past it, −5 points (never below 0), the streak resets and the right balloon flashes.
    - Clicking empty sky does nothing. If the answer floats away, the answer is shown and the next question comes up.
-3. After 60 seconds you get your score, correct/wrong/missed counts, accuracy and the words to practise,
-   with **Play again** and **Edit words**.
+4. After 60 seconds you get your score, correct/wrong/missed counts, accuracy and the words to practise,
+   with **Play again**, **Lava level** (once it's unlocked) and **Map**.
 
 - **Mouse**: the hunter turns and draws the bow toward the cursor.
 - The hunter gallops back and forth on his own during a round and halts to shoot. **A / D** or **← / →** turn the horse around.
@@ -43,15 +48,20 @@ The English word of each question is said out loud, using the pronunciation reco
 
 ## Lava level (spelling)
 
-Get **90% or more** of a balloon round right (escaped waves count as misses, at least 5 correct) and the end screen offers the **Lava level**. A robot crosses a lava lake on floating rocks: the banner shows the Hebrew word (e.g. כלב) and each column of rocks holds one letter of the English word plus two wrong letters. Jump d → o → g to reach the flag.
+Get **90% or more** of a balloon round right (escaped waves count as misses, at least 5 correct) and the end screen offers the **Lava level**, which also opens Lava Crossing on the map. A robot crosses a lava lake on floating rocks: the banner shows the Hebrew word (e.g. כלב) and each column of rocks holds one letter of the English word plus two wrong letters. Jump d → o → g to reach the flag.
 
 - Click a rock in the next column, or just type the letter.
-- A wrong letter sinks its rock and the robot drowns in the lava: one of 3 lives lost, back on the last safe rock.
+- Every jump is roped to a peg on the rock it starts from. On a right letter the rope disappears once the robot lands.
+- A wrong letter sinks its rock: the robot drops on the rope until it dangles just above the lava, loses one of 3 lives,
+  and climbs back to the rock it jumped from. On the last life the rope snaps and the robot falls into the lava.
+- The end screen has **Play again**, **Balloons** and **Map**.
 - 10 points per letter, +20 for a word with no mistakes. 5 words per game, taken from your list (single English words of 2–8 letters).
 - Practice it directly: open `http://localhost:5173/?level=lava` (uses the chosen word list).
 
 ## Code
 
+- `src/scenes/MapScene.js`: the word list screen and the adventure map (drawn in Phaser, styled after `fantasy_rpg_adventure_map.html`).
+- `src/progress.js`: whether the lava level is open on the map (localStorage, never throws).
 - `src/vocab.js`: sample pairs, and the old one-text-box word list format (read once to move it into a list).
 - `src/wordLists.js`: ready-made lists, `checkPair` validation and `WordLibrary` (create, rename, lock, delete lists; add, edit, remove pairs; saved in localStorage, never throws).
 - `src/quiz.js`: questions, options, scoring and stats (`Quiz`, `shuffle`, `DIRECTIONS`); pass `random` for determinism.

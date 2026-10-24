@@ -23,7 +23,11 @@ const ROCK_HALF_W = 58;
 
 const ROBOT_SCALE = 0.78;
 const JUMP_MS = 620;
-const RESPAWN_MS = 1300; // fall, splash, then back on the last safe rock
+const RESPAWN_MS = 1300; // last life: the rope snaps, splash, game over
+const HANG_Y = LAVA_Y - 8; // a wrong jump leaves the robot dangling just above the lava
+const HANG_MS = 650;
+const CLIMB_MS = 1700;
+const ROBOT_WAIST = 52; // where the rope is tied, above the robot's feet
 const CAMERA_LEAD = 360; // robot's distance from the left edge of the view
 
 const FONT = 'Trebuchet MS, Arial, sans-serif';
@@ -52,6 +56,8 @@ export default class LavaScene extends Phaser.Scene {
     this.lava = this.add.graphics().setDepth(30).setScrollFactor(0);
     this.highlight = this.add.graphics().setDepth(16);
     this.robot = this.add.sprite(0, 0, 'robot', ROBOT_FRAMES.ready).setOrigin(0.5, 1).setScale(ROBOT_SCALE).setDepth(20);
+    this.rope = this.add.graphics().setDepth(21); // in front of the robot, so the waist loop shows
+    this.ropeFrom = null; // the peg on the rock the robot jumped from, while the rope is out
     this.createHud();
 
     this.input.on('pointerdown', (pointer) => {
@@ -215,6 +221,7 @@ export default class LavaScene extends Phaser.Scene {
     this.cameras.main.fadeIn(300);
 
     this.current = this.start;
+    this.ropeFrom = null;
     this.robot.setVisible(true).setAlpha(1).setPosition(this.start.x, this.start.y + 6).setFrame(ROBOT_FRAMES.front);
     this.time.delayedCall(500, () => this.state === 'playing' && this.robot.setFrame(ROBOT_FRAMES.ready));
     this.state = 'playing';
@@ -245,12 +252,14 @@ export default class LavaScene extends Phaser.Scene {
     const { correct, done } = this.run.jump(rock.letter);
     this.state = 'jumping';
     sfx.jump();
+    this.attachRope(this.current);
     this.animateJump(rock, () => {
       if (!correct) {
         this.sinkInLava(rock);
         return;
       }
       sfx.thud();
+      this.detachRope();
       this.current = rock;
       this.flashRock(rock, 0x3ccf4a);
       this.updateHud();
@@ -293,7 +302,48 @@ export default class LavaScene extends Phaser.Scene {
     });
   }
 
-  // Wrong letter: the rock gives way and the robot drops into the lava.
+  // ---------------------------------------------------------------- rope
+
+  // Every jump is roped to a peg on the rock it starts from.
+  attachRope(rock) {
+    this.tweens.killTweensOf(this.rope);
+    this.rope.setAlpha(1);
+    this.ropeFrom = { x: rock.x + 26, y: rock.y + 4 };
+    this.ropeSlack = 1;
+  }
+
+  // A safe landing: the rope fades away.
+  detachRope() {
+    if (!this.ropeFrom) return;
+    this.tweens.add({ targets: this.rope, alpha: 0, duration: 250, onComplete: () => (this.ropeFrom = null) });
+  }
+
+  drawRope() {
+    this.rope.clear();
+    if (!this.ropeFrom || !this.robot.visible) return;
+    const { x: ax, y: ay } = this.ropeFrom;
+    const bx = this.robot.x;
+    const by = this.robot.y - ROBOT_WAIST;
+    // Slack while flying, straight once the robot hangs on it.
+    const sag = this.ropeSlack * Math.min(70, Math.hypot(bx - ax, by - ay) * 0.3);
+    const curve = new Phaser.Curves.QuadraticBezier(
+      new Phaser.Math.Vector2(ax, ay - 10),
+      new Phaser.Math.Vector2((ax + bx) / 2, (ay + by) / 2 + sag),
+      new Phaser.Math.Vector2(bx, by),
+    );
+    const points = curve.getPoints(20);
+    // A light rope with a dark outline, so it shows against the dark rock and the bright lava.
+    this.rope.fillStyle(0x2a1606).fillRect(ax - 6, ay - 20, 12, 22); // the peg
+    this.rope.fillStyle(0x8a5a2b).fillRect(ax - 4, ay - 18, 8, 18);
+    this.rope.lineStyle(8, 0x2a1606).strokePoints(points);
+    this.rope.lineStyle(4, 0xf0c27a).strokePoints(points);
+    // The loop around the robot's waist.
+    this.rope.lineStyle(7, 0x2a1606).strokeEllipse(bx, by, 56, 18);
+    this.rope.lineStyle(3.5, 0xf0c27a).strokeEllipse(bx, by, 56, 18);
+  }
+
+  // Wrong letter: the rock gives way and the robot drops on the rope until it dangles just above the
+  // lava, then climbs back to the rock it jumped from. On the last life the rope snaps.
   sinkInLava(rock) {
     this.state = 'falling';
     this.mistakes++;
@@ -302,6 +352,78 @@ export default class LavaScene extends Phaser.Scene {
     this.showMessage(`"${rock.letter}" is wrong!`, '#ff8a6a');
     this.tweens.add({ targets: rock.container, y: LAVA_Y - rock.y + 60, duration: 700, ease: 'Quad.easeIn' });
     this.robot.setFrame(ROBOT_FRAMES.fall);
+    if (this.lives <= 1) {
+      this.snapRope(rock);
+      return;
+    }
+    const anchor = this.ropeFrom;
+    this.tweens.add({ targets: this, ropeSlack: 0, duration: 400 });
+    this.tweens.add({
+      targets: this.robot,
+      x: anchor.x + 30,
+      y: HANG_Y,
+      duration: 520,
+      ease: 'Quad.easeIn',
+      onComplete: () => {
+        // The rope jerks tight with the robot's feet over the lava.
+        sfx.thud();
+        this.cameras.main.shake(180, 0.004);
+        this.lives--;
+        this.updateHud();
+        this.showMessage('Hot! Climb back up…', '#ff8a6a');
+        this.steamPuffs(this.robot.x);
+        this.tweens.add({ targets: this.robot, y: HANG_Y - 16, duration: 140, yoyo: true, repeat: 1, ease: 'Sine.easeOut' });
+        this.time.delayedCall(HANG_MS, () => this.climbBack());
+      },
+    });
+  }
+
+  climbBack() {
+    if (this.state === 'over') return;
+    let frame = 0;
+    this.tweens.add({
+      targets: this.robot,
+      x: this.current.x,
+      y: this.current.y + 6,
+      duration: CLIMB_MS,
+      ease: 'Sine.easeInOut',
+      onUpdate: (tween) => {
+        // Hand over hand: switch between two poses as it rises.
+        const step = Math.floor(tween.progress * 10);
+        if (step !== frame) {
+          frame = step;
+          this.robot.setFrame(step % 2 ? ROBOT_FRAMES.frontCrouch : ROBOT_FRAMES.front);
+        }
+      },
+      onComplete: () => {
+        this.robot.setFrame(ROBOT_FRAMES.frontLand);
+        this.time.delayedCall(250, () => this.state === 'playing' && this.robot.setFrame(ROBOT_FRAMES.ready));
+        this.detachRope();
+        this.state = 'playing';
+        this.showMessage('Try again: which letter comes next?', '#ffd166');
+      },
+    });
+  }
+
+  // Wisps of steam rising from the lava under the dangling robot.
+  steamPuffs(x) {
+    for (let i = 0; i < 6; i++) {
+      const puff = this.add.circle(x + Phaser.Math.Between(-30, 30), LAVA_Y, Phaser.Math.Between(6, 12), 0xffffff, 0.5).setDepth(21);
+      this.tweens.add({
+        targets: puff,
+        y: LAVA_Y - Phaser.Math.Between(60, 110),
+        alpha: 0,
+        scale: 2,
+        delay: i * 90,
+        duration: 800,
+        onComplete: () => puff.destroy(),
+      });
+    }
+  }
+
+  // Last life: the rope breaks and the robot drops into the lava.
+  snapRope(rock) {
+    this.ropeFrom = null;
     this.tweens.add({
       targets: this.robot,
       y: LAVA_Y + 90,
@@ -318,27 +440,18 @@ export default class LavaScene extends Phaser.Scene {
         this.updateHud();
       },
     });
-    this.time.delayedCall(RESPAWN_MS, () => {
-      if (this.lives <= 0) {
-        voice.say(this.run.word);
-        this.endGame('Burned out!', `The word was "${this.run.word}".`);
-        return;
-      }
-      // Back on the last safe rock to try again; the sunken rock is gone.
-      this.robot.setPosition(this.current.x, this.current.y + 6).setFrame(ROBOT_FRAMES.front).setVisible(true).setAlpha(0);
-      this.tweens.add({ targets: this.robot, alpha: 1, duration: 300 });
-      this.time.delayedCall(450, () => this.state === 'playing' && this.robot.setFrame(ROBOT_FRAMES.ready));
-      this.state = 'playing';
-      this.showMessage('Try again: which letter comes next?', '#ffd166');
-    });
+    voice.say(this.run.word);
+    this.time.delayedCall(RESPAWN_MS, () => this.endGame('Burned out!', `The word was "${this.run.word}".`));
   }
 
   finishWord() {
     this.state = 'jumping';
     const points = 10 * this.run.word.length + (this.run.mistakes === 0 ? 20 : 0);
+    this.attachRope(this.current);
     this.animateJump(this.goal, () => {
       sfx.win();
       voice.say(this.run.word);
+      this.detachRope();
       this.score += points;
       this.spelled++;
       this.robot.setFrame(ROBOT_FRAMES.frontLand);
@@ -367,8 +480,14 @@ export default class LavaScene extends Phaser.Scene {
         fontFamily: FONT, fontSize: '24px', color: '#ffffff', align: 'center', lineSpacing: 10,
       }).setOrigin(0.5));
     const by = H / 2 + 115;
-    if (this.words.length) items.push(this.makeButton(W / 2 - 150, by, 'Play again', 0xc0480e, () => this.scene.restart({ pairs: this.pairs })));
-    items.push(this.makeButton(this.words.length ? W / 2 + 150 : W / 2, by, 'Balloons', 0x3a6ea5, () => this.scene.start('game')));
+    const buttons = [
+      this.words.length && ['Play again', 0xc0480e, () => this.scene.restart({ pairs: this.pairs })],
+      ['Balloons', 0x2e9e4f, () => this.scene.start('game')],
+      ['Map', 0x3a6ea5, () => this.scene.start('map')],
+    ].filter(Boolean);
+    buttons.forEach(([label, color, onClick], i) => {
+      items.push(this.makeButton(W / 2 + (i - (buttons.length - 1) / 2) * 230, by, label, color, onClick));
+    });
     // Not a Container: Phaser hit-tests a fixed (scrollFactor 0) container's children as if they scrolled
     // with the camera, so once the view had moved along the word the buttons couldn't be clicked.
     items.forEach((item) => item.setScrollFactor(0).setDepth(95));
@@ -431,6 +550,7 @@ export default class LavaScene extends Phaser.Scene {
 
   update(time, delta) {
     this.drawLava(time);
+    this.drawRope();
 
     // Keep the robot in view as it crosses.
     const cam = this.cameras.main;

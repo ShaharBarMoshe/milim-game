@@ -4,7 +4,8 @@ import { sfx } from '../sound.js';
 import { voice } from '../speech.js';
 import { Quiz, DIRECTIONS } from '../quiz.js';
 import { steer, missPoint } from '../ballistics.js';
-import { showWordListForm, hideWordListForm } from '../ui/wordListForm.js';
+import { currentWords } from './MapScene.js';
+import { openLava } from '../progress.js';
 import { lavaUnlocked, spellingWord, successRate, UNLOCK_MIN_CORRECT, UNLOCK_SUCCESS } from '../spelling.js';
 
 const W = 1280;
@@ -95,15 +96,16 @@ export default class GameScene extends Phaser.Scene {
       emitting: false,
     }).setDepth(40);
 
-    // No key capture: the word-list textarea must still receive A, D and the arrow keys.
+    // No key capture: the word-list form must still receive A, D and the arrow keys.
     this.keys = this.input.keyboard.addKeys('A,D,LEFT,RIGHT', false);
     this.input.on('pointerdown', (pointer) => {
       if (pointer.leftButtonDown() && this.state === 'playing') this.handleClick(pointer.worldX, pointer.worldY);
     });
-    this.events.once('shutdown', hideWordListForm);
 
     this.setWind(Phaser.Math.Between(-MAX_WIND / 2, MAX_WIND / 2));
-    this.openSetup();
+    // The words and direction were chosen before the map; the round starts straight away.
+    const { pairs, direction } = currentWords(this.registry);
+    this.startRound(pairs, direction);
   }
 
   // ---------------------------------------------------------------- setup
@@ -194,21 +196,7 @@ export default class GameScene extends Phaser.Scene {
 
   // ---------------------------------------------------------------- round flow
 
-  openSetup() {
-    this.state = 'setup';
-    this.stopTimers();
-    this.hideOverlay();
-    this.clearWave(false);
-    this.banner.setVisible(false);
-    this.updateHud();
-    showWordListForm({
-      initialDirection: this.direction,
-      onStart: (pairs, direction) => this.startRound(pairs, direction),
-    });
-  }
-
   startRound(pairs = this.pairs, direction = this.direction) {
-    hideWordListForm();
     this.hideOverlay();
     this.clearWave(false);
     this.pairs = pairs;
@@ -301,13 +289,17 @@ export default class GameScene extends Phaser.Scene {
 
     const by = top + panelH - 55;
     if (unlocked) {
-      // 90%+ of the questions right opens the lava spelling level.
+      // 90%+ of the questions right opens the lava spelling level, on the map too. The registry keeps
+      // it even if the browser can't save it; 'lavaJustOpened' lets the map announce it once.
+      if (!this.registry.get('lavaOpen')) this.registry.set('lavaJustOpened', true);
+      this.registry.set('lavaOpen', true);
+      openLava();
       items.push(this.add.text(W / 2, by - 62, `🌋 ${successRate(s)}% success — Lava spelling level unlocked!`, {
         fontFamily: FONT, fontSize: '24px', fontStyle: 'bold', color: '#ffb36b', stroke: '#000', strokeThickness: 4,
       }).setOrigin(0.5));
       items.push(this.makeButton(W / 2 - 260, by, 'Play again', 0x2e9e4f, () => this.startRound()));
       items.push(this.makeButton(W / 2, by, 'Lava level', 0xc0480e, () => this.scene.start('lava', { pairs: this.pairs })));
-      items.push(this.makeButton(W / 2 + 260, by, 'Edit words', 0x3a6ea5, () => this.openSetup()));
+      items.push(this.makeButton(W / 2 + 260, by, 'Map', 0x3a6ea5, () => this.scene.start('map')));
     } else {
       if (canSpell && s.correct + s.wrong + s.missed > 0) {
         // Say why it is still locked; escaped balloons count against success.
@@ -319,7 +311,7 @@ export default class GameScene extends Phaser.Scene {
         }).setOrigin(0.5));
       }
       items.push(this.makeButton(W / 2 - 130, by, 'Play again', 0x2e9e4f, () => this.startRound()));
-      items.push(this.makeButton(W / 2 + 130, by, 'Edit words', 0x3a6ea5, () => this.openSetup()));
+      items.push(this.makeButton(W / 2 + 130, by, 'Map', 0x3a6ea5, () => this.scene.start('map')));
     }
     this.overlay = this.add.container(0, 0, items).setDepth(95);
   }
@@ -364,8 +356,9 @@ export default class GameScene extends Phaser.Scene {
     this.waveResolved = false;
     this.question = this.quiz.next();
     this.setBanner('Pop the translation of', this.question.prompt);
-    // Say the English word when it is the question; when it is the answer, saying it would give it away.
-    if (this.question.prompt === this.question.pair.en) voice.say(this.question.pair.en);
+    // Say the pair's English word whichever side the banner shows: the question, or the answer to find
+    // when the question is the Hebrew word. A Hebrew–Hebrew pair has no English word and stays silent.
+    voice.say(this.question.pair.en);
     this.spawnWave(this.question);
   }
 

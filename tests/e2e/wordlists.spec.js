@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { pairs, useWords } from './words.js';
+import { playBalloons } from './play.js';
 
 let pageErrors;
 
@@ -60,9 +61,7 @@ test('a new list is built word by word, saved, and played', async ({ page }) => 
   await expect(page.locator('#list-name')).toHaveValue('Trip');
   expect(await rows(page)).toEqual([['sea', 'ים'], ['beach', 'חוף']]);
 
-  await page.locator('#word-start').click();
-  await expect(page.locator('#word-form')).toBeHidden();
-  await page.waitForFunction(() => window.game.scene.getScene('game').quiz?.current);
+  await playBalloons(page);
   const prompt = await page.evaluate(() => window.game.scene.getScene('game').quiz.current.prompt);
   expect(['sea', 'ים', 'beach', 'חוף']).toContain(prompt);
 });
@@ -141,8 +140,7 @@ test('a Hebrew–Hebrew list takes Hebrew on both sides and plays in Hebrew', as
   await page.reload();
   await expect(page.locator('#list-kind')).toHaveValue('he-he');
 
-  await page.locator('#word-start').click();
-  await page.waitForFunction(() => window.game.scene.getScene('game').quiz?.current);
+  await playBalloons(page);
   const q = await page.evaluate(() => window.game.scene.getScene('game').quiz.current);
   for (const word of [q.prompt, ...q.options]) expect(word).toMatch(/^[֐-׿ ]+$/);
 });
