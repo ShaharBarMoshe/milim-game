@@ -29,6 +29,18 @@ npm run dev        # open the printed http://localhost URL
 - **Mouse**: the hunter turns and draws the bow toward the cursor.
 - The hunter gallops back and forth on his own during a round and halts to shoot. **A / D** or **← / →** turn the horse around.
 
+## Spoken words
+
+The English word of each question is said out loud, using the pronunciation recordings on
+[Wiktionary](https://en.wiktionary.org) (free, no key needed; one API request per word, cached):
+
+- Balloons: when the question shows the English word, and again when the question ends (popped or escaped).
+  When the question shows the Hebrew word, the English word is the answer, so it is only said at the end.
+- Lava: when a word starts, and again when it is crossed (or lost).
+- Words with anything other than English letters are skipped. Only words and phrases that Wiktionary has an
+  English recording of are said (e.g. "dog", "ice cream"); others stay silent. A failed request, or one with no answer within 6 seconds, is
+  skipped too; the game never waits for speech.
+
 ## Lava level (spelling)
 
 Get **90% or more** of a balloon round right (escaped waves count as misses, at least 5 correct) and the end screen offers the **Lava level**. A robot crosses a lava lake on floating rocks: the banner shows the Hebrew word (e.g. כלב) and each column of rocks holds one letter of the English word plus two wrong letters. Jump d → o → g to reach the flag.
@@ -46,6 +58,7 @@ Get **90% or more** of a balloon round right (escaped waves count as misses, at 
 - `src/ballistics.js`: `steer` (homing step) and `missPoint` (where a deliberate miss passes).
 - `src/ui/wordListForm.js`: the HTML word-list overlay (HTML so Hebrew typing and RTL work natively).
 - `src/spelling.js`: lava-level rules (`lavaUnlocked`, `spellingWord`, `SpellingRun`).
+- `src/speech.js`: spoken words (`Speaker`, `voice`): Wiktionary lookup, 6 s deadline, one word at a time.
 - `src/scenes/LavaScene.js`: the lava level. In dev, `getScene('lava')` exposes `state`, `run`, `rocks`, `lives`, `score`.
 - `src/scenes/GameScene.js`: the game. In dev, `window.game.scene.getScene('game')` exposes `state`, `quiz` and `balloons`.
 

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { ARCHER_FRAMES, BALLOON_COLORS } from './PreloadScene.js';
 import { sfx } from '../sound.js';
+import { voice } from '../speech.js';
 import { Quiz, DIRECTIONS } from '../quiz.js';
 import { steer, missPoint } from '../ballistics.js';
 import { showWordListForm, hideWordListForm } from '../ui/wordListForm.js';
@@ -63,6 +64,7 @@ export default class GameScene extends Phaser.Scene {
 
   create() {
     this.state = 'setup';
+    this.events.once('shutdown', () => voice.stop());
     this.balloons = [];
     this.arrows = [];
     this.quiz = null;
@@ -362,6 +364,8 @@ export default class GameScene extends Phaser.Scene {
     this.waveResolved = false;
     this.question = this.quiz.next();
     this.setBanner('Pop the translation of', this.question.prompt);
+    // Say the English word when it is the question; when it is the answer, saying it would give it away.
+    if (this.question.prompt === this.question.pair.en) voice.say(this.question.pair.en);
     this.spawnWave(this.question);
   }
 
@@ -454,6 +458,7 @@ export default class GameScene extends Phaser.Scene {
       balloon.award = points;
       this.fireArrow(balloon, true);
       sfx.correct();
+      voice.say(this.question.pair.en);
     } else {
       balloon.tried = true;
       balloon.img.setAlpha(0.55);
@@ -472,6 +477,7 @@ export default class GameScene extends Phaser.Scene {
     this.waveResolved = true;
     this.quiz.skip();
     this.setBanner('Too late! The answer was', this.question.answer, '#ffd166');
+    voice.say(this.question.pair.en);
     this.updateHud();
     const id = this.waveId;
     this.time.delayedCall(REVEAL_MS, () => id === this.waveId && this.nextQuestion());

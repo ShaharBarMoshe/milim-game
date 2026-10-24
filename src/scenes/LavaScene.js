@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { ROBOT_FRAMES } from './PreloadScene.js';
 import { sfx } from '../sound.js';
+import { voice } from '../speech.js';
 import { shuffle } from '../quiz.js';
 import { SAMPLE_PAIRS } from '../vocab.js';
 import { SpellingRun, pickSpellingPairs, typedLetter } from '../spelling.js';
@@ -38,6 +39,7 @@ export default class LavaScene extends Phaser.Scene {
 
   create() {
     this.state = 'playing';
+    this.events.once('shutdown', () => voice.stop());
     this.lives = LIVES;
     this.score = 0;
     this.spelled = 0;
@@ -193,6 +195,7 @@ export default class LavaScene extends Phaser.Scene {
 
     const pair = this.words[this.wordIndex];
     this.run = new SpellingRun(pair, { choices: CHOICES });
+    voice.say(pair.en);
     this.start = this.makeRock(START_X, START_TOP, { pillar: true });
     this.rocks = [];
     this.run.columns.forEach((col, i) => {
@@ -317,6 +320,7 @@ export default class LavaScene extends Phaser.Scene {
     });
     this.time.delayedCall(RESPAWN_MS, () => {
       if (this.lives <= 0) {
+        voice.say(this.run.word);
         this.endGame('Burned out!', `The word was "${this.run.word}".`);
         return;
       }
@@ -334,6 +338,7 @@ export default class LavaScene extends Phaser.Scene {
     const points = 10 * this.run.word.length + (this.run.mistakes === 0 ? 20 : 0);
     this.animateJump(this.goal, () => {
       sfx.win();
+      voice.say(this.run.word);
       this.score += points;
       this.spelled++;
       this.robot.setFrame(ROBOT_FRAMES.frontLand);
