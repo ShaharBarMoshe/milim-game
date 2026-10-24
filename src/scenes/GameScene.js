@@ -4,7 +4,7 @@ import { sfx } from '../sound.js';
 import { Quiz, DIRECTIONS } from '../quiz.js';
 import { steer, missPoint } from '../ballistics.js';
 import { showWordListForm, hideWordListForm } from '../ui/wordListForm.js';
-import { lavaUnlocked, spellingWord, successRate, UNLOCK_SUCCESS } from '../spelling.js';
+import { lavaUnlocked, spellingWord, successRate, UNLOCK_MIN_CORRECT, UNLOCK_SUCCESS } from '../spelling.js';
 
 const W = 1280;
 const H = 720;
@@ -273,7 +273,7 @@ export default class GameScene extends Phaser.Scene {
     }).setOrigin(0.5));
     items.push(this.add.text(W / 2, top + 130,
       `Score: ${this.score}     Best: ${this.best}\n` +
-      `Correct: ${s.correct}   Wrong: ${s.wrong}   Missed: ${s.missed}   Accuracy: ${s.accuracy}%\n` +
+      `Correct: ${s.correct}   Wrong: ${s.wrong}   Missed: ${s.missed}   Success: ${successRate(s)}%\n` +
       `Best streak: ${s.bestStreak}`, {
         fontFamily: FONT, fontSize: '24px', color: '#ffffff', align: 'center', lineSpacing: 8,
       }).setOrigin(0.5));
@@ -308,7 +308,11 @@ export default class GameScene extends Phaser.Scene {
       items.push(this.makeButton(W / 2 + 260, by, 'Edit words', 0x3a6ea5, () => this.openSetup()));
     } else {
       if (canSpell && s.correct + s.wrong + s.missed > 0) {
-        items.push(this.add.text(W / 2, by - 50, `Get ${UNLOCK_SUCCESS}% right to unlock the lava level`, {
+        // Say why it is still locked; escaped balloons count against success.
+        const why = s.correct < UNLOCK_MIN_CORRECT
+          ? `Get at least ${UNLOCK_MIN_CORRECT} right and ${UNLOCK_SUCCESS}% success to unlock the lava level`
+          : `${successRate(s)}% success${s.missed ? ` (${s.missed} escaped balloons count as misses)` : ''}, need ${UNLOCK_SUCCESS}% for the lava level`;
+        items.push(this.add.text(W / 2, by - 50, why, {
           fontFamily: FONT, fontSize: '18px', color: '#cfe8ff',
         }).setOrigin(0.5));
       }
@@ -342,7 +346,7 @@ export default class GameScene extends Phaser.Scene {
     this.scoreText.setText(playing ? `Score: ${this.score}` : '');
     this.timeText.setText(playing ? `⏱ ${Math.max(0, this.timeLeft)}` : '');
     this.timeText.setColor(this.timeLeft <= 10 ? '#ff6b6b' : '#ffffff');
-    this.accText.setText(playing && stats ? `Accuracy: ${stats.accuracy}%` : '');
+    this.accText.setText(playing && stats ? `Success: ${successRate(stats)}%` : '');
     const strength = Math.round(Math.abs(this.wind) / 32);
     const dir = (this.wind < 0 ? '◀' : '▶').repeat(strength);
     this.windText.setText(!playing ? '' : strength === 0 ? 'Wind: calm' : `Wind: ${dir} ${strength}`);

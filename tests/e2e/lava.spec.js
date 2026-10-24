@@ -224,6 +224,28 @@ test('below 90% there is no lava button', async ({ page }) => {
   expect(await page.evaluate(() => window.game.scene.getScene('game').overlay.list.some((o) => o.text === 'Lava level'))).toBe(false);
 });
 
+test('escaped balloons keep the lava level locked even at 100% accuracy, and the end screen says why', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#word-start').click();
+  await page.waitForFunction(() => window.game.scene.getScene('game').state === 'playing');
+  // 8 right, 0 wrong, 2 escaped = 80% success.
+  await page.evaluate(() => {
+    const scene = window.game.scene.getScene('game');
+    const quiz = scene.quiz;
+    for (let i = 0; i < 10; i++) {
+      quiz.next();
+      if (i < 8) quiz.answer(quiz.current.answer);
+      else quiz.skip();
+    }
+    scene.endRound();
+  });
+  await page.waitForFunction(() => window.game.scene.getScene('game').overlay?.list.some((o) => o.text === 'Play again'));
+  const texts = await page.evaluate(() => window.game.scene.getScene('game').overlay.list.map((o) => o.text).filter(Boolean));
+  expect(texts).not.toContain('Lava level');
+  expect(texts.some((t) => t.includes('Success: 80%'))).toBe(true);
+  expect(texts).toContain('80% success (2 escaped balloons count as misses), need 90% for the lava level');
+});
+
 // Long words, so the camera has scrolled well along the lava by the time the game ends.
 const LONG_WORDS = pairs('elephant=פיל', 'umbrella=מטריה', 'computer=מחשב');
 
