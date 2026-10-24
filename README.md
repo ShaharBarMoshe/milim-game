@@ -13,12 +13,13 @@ npm run dev        # open the printed http://localhost URL
    **To the map** (needs at least 2 pairs; Ctrl+Enter works too). Pick a direction first if you like: Mixed by default (some questions
    show the English word, some the Hebrew), or English→Hebrew / Hebrew→English only.
    - **+ New list** makes an empty list; type its name in the name box.
-   - **📂 Upload file** makes a new list from a `.txt`, `.csv` or `.tsv` file (under 1 MB), named after the file.
-     One pair per line, English and Hebrew in either order, separated by a comma, tab, ` - `, `=`, `:`, `;` and so
-     on (`dog,כלב`, `"cat";"חתול"`, `בית - house`). Blank lines, lines starting with `#` and a header row
-     (`english,hebrew`) are skipped. A file whose lines are Hebrew on both sides becomes a Hebrew–Hebrew list.
-     Lines that aren't a good pair (a word twice, too long, no separator) are left out, and the message under the
-     buttons says which. The file needs at least 2 good pairs.
+   - **📤 Share list** sends the selected list to a friend as a `.json` file. **WhatsApp** and **Email** open the
+     device's share menu with the file attached (phones, and Chrome, Edge and Safari on Windows and Mac): choose
+     WhatsApp or Mail there. A web page can't attach a file to a WhatsApp or email link, so where the browser can't
+     share files (e.g. Chrome on Linux) the file is downloaded and WhatsApp or the mail app opens with a message,
+     for you to attach it. **⬇ Download file** just saves it. The friend adds it with **📂 Upload list**.
+   - **📂 Upload list** adds a list from a `.json` word list file (1 MB at most), such as one a friend sent.
+     See **Word list files** below.
    - Add a word by typing the English in one box and the Hebrew in the other (Enter moves on, Enter again adds).
      Wrong input is explained (Hebrew in the English box, a word already in the list, …) and nothing is added.
    - Edit any word right in the table, or remove it with ✕. An edit that would break the list is undone.
@@ -53,6 +54,32 @@ the browser, so only new words call the API (a word with no recording is checked
 - Words with anything other than English letters are skipped. Only words and phrases that Wiktionary has an
   English recording of are said (e.g. "dog", "ice cream"); others stay silent. A failed request, or one with no answer within 6 seconds, is
   skipped too; the game never waits for speech.
+
+## Word list files
+
+A shared list is a JSON file:
+
+```json
+{
+  "app": "milim",
+  "version": 1,
+  "name": "Animals",
+  "kind": "en-he",
+  "words": [
+    { "en": "dog", "he": "כלב" },
+    { "en": "cat", "he": "חתול" }
+  ]
+}
+```
+
+- `kind` is `en-he` (English–Hebrew) or `he-he` (Hebrew–Hebrew, e.g. opposites). Without it, a file whose rows
+  are all Hebrew on both sides is Hebrew–Hebrew. `name` defaults to the file name.
+- A row can also be a pair in brackets, `["dog", "כלב"]`, and in an English–Hebrew list the two words may come in
+  either order. A bare array of rows, or `pairs` in place of `words`, works too.
+- Uploading and sharing both check every row the way typing does. A bad row (a word twice,
+  Hebrew in the English place, too long, not two words) is left out and the message under the buttons says which
+  rows were skipped and why. Only a file or list with no good row at all is refused. A name that's taken gets a
+  number ("Animals 2").
 
 ## Points
 
@@ -122,7 +149,8 @@ Open it from **Lava Crossing** on the map or the balloon end screen's **Lava lev
 - `tools/draw_kids.py` (`npm run kids`): draws the girl and boy players as sprite sheets in the same frame layouts as `hunter.png` and `robot.png`.
 - `src/scenes/MapScene.js`: the word list screen and the adventure map (drawn in Phaser, styled after `fantasy_rpg_adventure_map.html`).
 - `src/vocab.js`: sample pairs, and the old one-text-box word list format (read once to move it into a list).
-- `src/wordLists.js`: ready-made lists, `checkPair` validation and `WordLibrary` (create, rename, lock, delete lists; add, edit, remove pairs; saved in localStorage, never throws).
+- `src/wordLists.js`: ready-made lists, `checkPair` validation and `WordLibrary` (create, rename, lock, delete lists; add, edit, remove pairs; `importList` for a shared list; saved in localStorage, never throws).
+- `src/listFile.js`: word list files (`toListFile`, `parseListFile`, `listFileName`, `shareMessage`, `fallbackShareUrl`); bad rows are skipped and reported, never thrown.
 - `src/score.js`: points for both games (`balloonPoints`, `spellingPoints`, `lengthBonus`) and `WordHistory`, the tricky words (saved in localStorage, never throws).
 - `src/shop.js`: the wallet, the catalogue and `Tally`, which saves a game's points into the wallet as they're won.
 - `src/quiz.js`: questions, options, scoring and stats (`Quiz`, `shuffle`, `DIRECTIONS`); pass `random` for determinism.

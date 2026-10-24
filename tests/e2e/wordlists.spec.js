@@ -145,18 +145,91 @@ test('a Hebrew–Hebrew list takes Hebrew on both sides and plays in Hebrew', as
   for (const word of [q.prompt, ...q.options]) expect(word).toMatch(/^[֐-׿ ]+$/);
 });
 
-test('uploading a file of words makes a new list, reports bad lines, and plays', async ({ page }) => {
-  const csv = '\uFEFFEnglish,Hebrew\r\ndog,כלב\r\ncat,חתול\r\nsun,שמש\r\nnot a pair\r\n';
-  await page.setInputFiles('#word-file', { name: 'animals.csv', mimeType: 'text/csv', buffer: Buffer.from(csv, 'utf8') });
+// Word lists as JSON files, sent by WhatsApp or email as the file itself. Happy flows end to end; the
+// row-by-row error rules are unit-tested in tests/listFile.test.js, here only how the form reports them.
+const status = (page) => page.locator('#word-upload-status');
+const fileNameOf = (name) => `${name.trim().replace(/\s+/g, '-')}.json`; // listFileName, for plain names
+const jsonFile = (name, value) => ({ name, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(value), 'utf8') });
 
-  await expect(page.locator('#word-upload-status')).toContainText('Added 3 words from animals.csv');
-  await expect(page.locator('#word-upload-status')).toContainText('not a pair');
-  await expect(page.locator('#list-name')).toHaveValue('animals');
-  expect(await page.locator('#list-select option:checked').textContent()).toMatch(/^animals/);
-  expect(await rows(page)).toEqual([['dog', 'כלב'], ['cat', 'חתול'], ['sun', 'שמש']]);
+test('WhatsApp and Email send the list as a JSON file through the share menu', async ({ page }) => {
+  const name = await page.locator('#list-name').inputValue();
+  const words = await rows(page);
+  // A device that can share files (a phone): record what the share menu gets.
+  await page.evaluate(() => {
+    navigator.canShare = (data) => Boolean(data?.files?.length);
+    navigator.share = async ({ files, title, text }) => {
+      window.__shared = { title, text, files: await Promise.all(files.map(async (f) => ({ name: f.name, type: f.type, text: await f.text() }))) };
+    };
+  });
+  await page.locator('#word-share').click();
+  await expect(page.locator('#word-share-panel')).toBeVisible();
+  for (const [button, app] of [['#share-whatsapp', 'WhatsApp'], ['#share-email', 'Mail']]) {
+    await page.evaluate(() => { window.__shared = null; });
+    await page.locator(button).click();
+    const shared = await (await page.waitForFunction(() => window.__shared)).jsonValue();
+    expect(shared.files).toHaveLength(1);
+    expect(shared.files[0]).toMatchObject({ name: fileNameOf(name), type: 'application/json' });
+    const file = JSON.parse(shared.files[0].text);
+    expect(file).toMatchObject({ app: 'milim', version: 1, name });
+    expect(file.words.map((w) => [w.en, w.he])).toEqual(words);
+    expect(shared.text).toContain(fileNameOf(name));
+    expect(shared.text).not.toMatch(/https?:|#list=/);
+    await expect(status(page)).toContainText(`Choose ${app} in the share menu`);
+  }
+  await page.locator('#share-close').click();
+  await expect(page.locator('#word-share-panel')).toBeHidden();
+});
 
-  // Saved, and playable straight away.
-  await playBalloons(page);
-  const words = await page.evaluate(() => window.game.scene.getScene('game').pairs.map((p) => p.en));
-  expect(words.sort()).toEqual(['cat', 'dog', 'sun']);
+test('where the browser cannot share files, the file is downloaded and WhatsApp or the mail app opens', async ({ page }) => {
+  const name = await page.locator('#list-name').inputValue();
+  const words = await rows(page);
+  await page.evaluate(() => {
+    navigator.canShare = () => false;
+    window.open = (url) => { window.__opened = url; return null; };
+  });
+  await page.locator('#word-share').click();
+  const readDownload = async (download) => JSON.parse(await (await import('node:fs/promises')).readFile(await download.path(), 'utf8'));
+
+  let [download] = await Promise.all([page.waitForEvent('download'), page.locator('#share-whatsapp').click()]);
+  expect(download.suggestedFilename()).toBe(fileNameOf(name));
+  expect((await readDownload(download)).words.map((w) => [w.en, w.he])).toEqual(words);
+  let opened = await page.evaluate(() => window.__opened);
+  expect(opened.startsWith('https://wa.me/?text=')).toBe(true);
+  expect(decodeURIComponent(opened)).toContain(fileNameOf(name));
+  expect(decodeURIComponent(opened)).not.toContain('#list=');
+  await expect(status(page)).toContainText(`${fileNameOf(name)} was downloaded: attach it in the WhatsApp chat`);
+
+  [download] = await Promise.all([page.waitForEvent('download'), page.locator('#share-email').click()]);
+  expect(download.suggestedFilename()).toBe(fileNameOf(name));
+  opened = await page.evaluate(() => window.__opened);
+  expect(opened.startsWith('mailto:?subject=')).toBe(true);
+  await expect(status(page)).toContainText('attach it to the email');
+
+  [download] = await Promise.all([page.waitForEvent('download'), page.locator('#share-download').click()]);
+  expect(await readDownload(download)).toMatchObject({ app: 'milim', version: 1, name });
+  await expect(status(page)).toContainText(`Downloaded ${fileNameOf(name)}`);
+});
+
+test('a JSON file uploads into a new list, skipping only its bad rows', async ({ page }) => {
+  // 3 good rows and 1 bad one: the good ones are added, the bad row is reported.
+  await page.setInputFiles('#word-file', jsonFile('zoo.json', {
+    app: 'milim', version: 1, name: 'zoo', kind: 'en-he',
+    words: [{ en: 'dog', he: 'כלב' }, { en: 'cat', he: 'חתול' }, { en: 'sun', he: 'moon' }, ['lion', 'אריה']],
+  }));
+  await expect(status(page)).toContainText('Added 3 words from zoo.json');
+  await expect(status(page)).toContainText('row 3');
+  await expect(page.locator('#list-name')).toHaveValue('zoo');
+  expect(await page.locator('#list-select option:checked').textContent()).toMatch(/^zoo/);
+  expect(await rows(page)).toEqual([['dog', 'כלב'], ['cat', 'חתול'], ['lion', 'אריה']]);
+
+  // Every row bad: nothing is added.
+  const before = await listNames(page);
+  await page.setInputFiles('#word-file', jsonFile('bad.json', { name: 'bad', words: [['sun', 'moon'], [42, 'x']] }));
+  await expect(status(page)).toContainText('No valid words in this file');
+  expect(await listNames(page)).toEqual(before);
+
+  // Not a .json file.
+  await page.setInputFiles('#word-file', { name: 'words.txt', mimeType: 'text/plain', buffer: Buffer.from('dog,כלב\ncat,חתול') });
+  await expect(status(page)).toContainText('Choose a .json word list file');
+  expect(await listNames(page)).toEqual(before);
 });

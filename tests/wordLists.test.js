@@ -282,3 +282,51 @@ describe('Hebrew–Hebrew lists', () => {
     expect(library.get('x').kind).toBe(KINDS.EN_HE);
   });
 });
+
+// importList: a list read from a JSON file or share link (already checked by parseListFile) becomes a
+// new, selected, saved list; an empty one creates nothing.
+describe('WordLibrary.importList', () => {
+  const ZOO = { name: 'animals', kind: KINDS.EN_HE, pairs: [{ en: 'dog', he: 'כלב' }, { en: 'cat', he: 'חתול' }] };
+
+  it('adds the list, selects it and saves it', () => {
+    const storage = memoryStorage();
+    const library = WordLibrary.load(storage);
+    const before = library.lists.length;
+    const result = library.importList(ZOO);
+    expect(result).toMatchObject({ ok: true, added: 2 });
+    expect(library.lists).toHaveLength(before + 1);
+    expect(library.selectedId).toBe(result.id);
+    expect(library.get(result.id)).toMatchObject({ name: 'animals', kind: 'en-he', locked: false, pairs: ZOO.pairs });
+    const again = WordLibrary.load(storage);
+    expect(again.selectedId).toBe(result.id);
+    expect(again.get(result.id).pairs).toEqual(ZOO.pairs);
+  });
+
+  it('numbers a name that is already taken', () => {
+    const library = WordLibrary.load(memoryStorage());
+    library.importList(ZOO);
+    const second = library.importList(ZOO);
+    expect(library.get(second.id).name).toBe('animals 2');
+  });
+
+  it('keeps a Hebrew–Hebrew list Hebrew–Hebrew', () => {
+    const library = WordLibrary.load(memoryStorage());
+    const { id } = library.importList({ name: 'הפכים', kind: KINDS.HE_HE, pairs: [{ en: 'גדול', he: 'קטן' }, { en: 'חם', he: 'קר' }] });
+    expect(library.get(id).kind).toBe('he-he');
+  });
+
+  it('creates nothing for a list with no words', () => {
+    const storage = memoryStorage();
+    const library = WordLibrary.load(storage);
+    const before = library.lists.map((l) => l.id);
+    const selected = library.selectedId;
+    expect(library.importList({ name: 'empty', kind: KINDS.EN_HE, pairs: [] })).toEqual({ ok: false, error: 'No valid words in this file' });
+    expect(library.lists.map((l) => l.id)).toEqual(before);
+    expect(library.selectedId).toBe(selected);
+  });
+
+  it('never throws when storage is blocked', () => {
+    const library = WordLibrary.load(throwingStorage());
+    expect(library.importList(ZOO).ok).toBe(true);
+  });
+});

@@ -3,9 +3,15 @@
 // no separator to get wrong.
 import { DIRECTIONS } from '../quiz.js';
 import { KIND_LABELS, KINDS, MIN_PAIRS, WordLibrary } from '../wordLists.js';
+import { MAX_FILE_BYTES, fallbackShareUrl, listFileName, parseListFile, shareMessage, toListFile } from '../listFile.js';
 
 let root = null;
-const MAX_FILE_BYTES = 1024 * 1024;
+
+// " (skipped 2: row 3 – Not a word pair; row 5 – …)" for the rows a file or share left out.
+const skippedText = (skipped) =>
+  skipped.length
+    ? ` (skipped ${skipped.length}: ${skipped.slice(0, 3).map((s) => `row ${s.row} – ${s.error}`).join('; ')}${skipped.length > 3 ? '; …' : ''})`
+    : '';
 
 export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart, library = WordLibrary.load() } = {}) {
   hideWordListForm();
@@ -20,10 +26,18 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
       <div class="list-bar">
         <label>Word list <select id="list-select"></select></label>
         <button type="button" id="list-new" class="word-secondary">+ New list</button>
-        <button type="button" id="word-upload" class="word-secondary">📂 Upload file</button>
-        <input type="file" id="word-file" hidden accept=".txt,.csv,.tsv,text/plain,text/csv,text/tab-separated-values" />
+        <button type="button" id="word-upload" class="word-secondary">📂 Upload list</button>
+        <button type="button" id="word-share" class="word-secondary">📤 Share list</button>
+        <input type="file" id="word-file" hidden accept=".json,application/json" />
       </div>
       <div id="word-upload-status" class="word-summary" role="status"></div>
+      <div id="word-share-panel" class="share-panel" hidden>
+        <span>Send this list:</span>
+        <button type="button" id="share-whatsapp" class="share-link">WhatsApp</button>
+        <button type="button" id="share-email" class="share-link">Email</button>
+        <button type="button" id="share-download" class="word-secondary">⬇ Download file</button>
+        <button type="button" id="share-close" class="word-secondary" aria-label="Close sharing">✕</button>
+      </div>
       <div class="list-head">
         <input id="list-name" aria-label="List name" maxlength="40" autocomplete="off" />
         <select id="list-kind" aria-label="Kind of list">
@@ -77,6 +91,7 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
   const start = $('#word-start');
   const file = $('#word-file');
   const uploadStatus = $('#word-upload-status');
+  const sharePanel = $('#word-share-panel');
   if ([...direction.options].some((o) => o.value === initialDirection)) direction.value = initialDirection;
 
   let deleteArmed = null; // timer while "Delete list" waits for its confirming second click
@@ -85,6 +100,11 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
     error.textContent = message ?? '';
     [addEn, addHe].forEach((f) => f.removeAttribute('aria-invalid'));
     if (field) field.setAttribute('aria-invalid', 'true');
+  };
+
+  const say = (message, ok) => {
+    uploadStatus.textContent = message;
+    uploadStatus.className = `word-summary ${ok ? 'word-ok' : 'word-bad'}`;
   };
 
   const disarmDelete = () => {
@@ -208,18 +228,19 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
     name.focus();
     name.select();
   });
-  // A word file (one pair per line) becomes a new list, named after the file.
+  // A word list file (JSON, see src/listFile.js) becomes a new list. Bad rows are skipped and listed;
+  // only a file with no good rows is refused.
   $('#word-upload').addEventListener('click', () => file.click());
   file.addEventListener('change', async () => {
     const chosen = file.files?.[0];
     file.value = ''; // so the same file can be chosen again
     if (!chosen) return;
-    const say = (message, ok) => {
-      uploadStatus.textContent = message;
-      uploadStatus.className = `word-summary ${ok ? 'word-ok' : 'word-bad'}`;
-    };
+    if (!/\.json$/i.test(chosen.name)) {
+      say('Choose a .json word list file', false);
+      return;
+    }
     if (chosen.size > MAX_FILE_BYTES) {
-      say(`${chosen.name} is too big: a word file must be under 1 MB`, false);
+      say('The file is too big (1 MB at most)', false);
       return;
     }
     let text;
@@ -229,19 +250,81 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
       say(`Couldn't read ${chosen.name}`, false);
       return;
     }
-    const result = library.importFile(chosen.name, text);
-    const skipped = result.skipped.length
-      ? ` (skipped ${result.skipped.length}: ${result.skipped.slice(0, 3).map((s) => `line ${s.line} "${s.text}" – ${s.error}`).join('; ')}${result.skipped.length > 3 ? '; …' : ''})`
-      : '';
+    const parsed = parseListFile(text, chosen.name.replace(/\.json$/i, ''));
+    const result = parsed.ok ? library.importList(parsed.list) : parsed;
     if (!result.ok) {
-      say(`${result.error}${skipped}`, false);
+      say(`${result.error}${skippedText(parsed.skipped)}`, false);
       return;
     }
-    disarmDelete();
+    sharePanel.hidden = true;
     showError(null);
     render();
-    say(`Added ${result.added} words from ${chosen.name}${skipped}`, true);
+    say(`Added ${result.added} words from ${chosen.name}${skippedText(parsed.skipped)}`, true);
   });
+
+  // Share the selected list as its JSON file. WhatsApp and Email open the device's share sheet with the
+  // file attached (phones, and most desktop browsers); a web page can't attach a file to a WhatsApp or
+  // mailto link, so where the browser can't share files the file is downloaded and WhatsApp or the mail
+  // app opens with a message, for the file to be attached by hand.
+  $('#word-share').addEventListener('click', () => {
+    const list = library.selected;
+    const result = toListFile(list);
+    if (!result.ok) {
+      sharePanel.hidden = true;
+      say(`${result.error}${skippedText(result.skipped)}`, false);
+      return;
+    }
+    const { file: listFile, skipped } = result;
+    const json = JSON.stringify(listFile, null, 2);
+    const fileName = listFileName(listFile.name);
+    const sharing = skipped.length ? `Sharing ${listFile.words.length} words${skippedText(skipped)}. ` : '';
+    const download = () => {
+      const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+    const send = async (app) => {
+      let deviceFile = null;
+      try {
+        deviceFile = new File([json], fileName, { type: 'application/json' });
+      } catch {
+        deviceFile = null;
+      }
+      if (deviceFile && navigator.canShare?.({ files: [deviceFile] })) {
+        say(`${sharing}Choose ${app === 'whatsapp' ? 'WhatsApp' : 'Mail'} in the share menu to send ${fileName}.`, true);
+        try {
+          await navigator.share({ files: [deviceFile], title: `Milim word list: ${listFile.name}`, text: shareMessage(listFile, fileName) });
+          return;
+        } catch (err) {
+          if (err?.name === 'AbortError') return; // closed the share menu
+        }
+      }
+      download();
+      window.open(fallbackShareUrl(app, listFile, fileName), '_blank', 'noopener');
+      say(`${sharing}${fileName} was downloaded: attach it ${app === 'whatsapp' ? 'in the WhatsApp chat' : 'to the email'}.`, true);
+    };
+    $('#share-whatsapp').onclick = () => send('whatsapp');
+    $('#share-email').onclick = () => send('email');
+    $('#share-download').onclick = () => {
+      download();
+      say(`${sharing}Downloaded ${fileName}.`, true);
+    };
+    sharePanel.hidden = false;
+    say(sharing ? sharing.trim() : '', true);
+  });
+  $('#share-close').addEventListener('click', () => {
+    sharePanel.hidden = true;
+  });
+  // Choosing another list closes the panel, which was for the list it was opened on.
+  select.addEventListener('change', () => {
+    sharePanel.hidden = true;
+  });
+
   kind.addEventListener('change', () => {
     library.setKind(library.selectedId, kind.value);
     showError(null);

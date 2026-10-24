@@ -56,6 +56,13 @@
       #word-error { min-height: 1.2em; font-size: 15px; }
       .word-summary { min-height: 1.4em; font-size: 15px; }
       #word-upload-status:empty { display: none; }
+      .share-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0; padding: 8px 10px; border-radius: 10px; background: rgba(0, 0, 0, 0.25); font-size: 15px; }
+      .share-panel[hidden] { display: none; }
+      .share-link { padding: 8px 16px; border-radius: 8px; color: #fff; font-weight: bold; text-decoration: none; }
+      #share-whatsapp { background: #1f9d55; }
+      #share-email { background: #c0480e; }
+      .share-link:focus-visible { outline: 3px solid #ffe066; outline-offset: 2px; }
+      .word-form button[hidden] { display: none; }
       .word-ok { color: #a8ffb0; }
       .word-bad { color: #ffb4a8; }
       .word-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }

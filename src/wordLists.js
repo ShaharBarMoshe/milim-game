@@ -4,7 +4,7 @@
 // A list is English–Hebrew or Hebrew–Hebrew (e.g. opposites). Pairs keep the keys `en` and `he` for
 // their first and second word either way, so in a Hebrew–Hebrew list both are Hebrew.
 
-import { SAMPLE_PAIRS, loadWordList, parseWordList, splitLine } from './vocab.js';
+import { SAMPLE_PAIRS, loadWordList, parseWordList } from './vocab.js';
 
 export const LIBRARY_KEY = 'balloon-archer-lists';
 export const MIN_PAIRS = 2;
@@ -108,54 +108,6 @@ export function checkPair(en, he, list = [], ignoreIndex = -1, kind = KINDS.EN_H
   if (others.some((p) => p.en.toLowerCase() === en.toLowerCase())) return { ok: false, field: 'en', error: `"${en}" is already in this list` };
   if (others.some((p) => p.he === he)) return { ok: false, field: 'he', error: `"${he}" is already in this list` };
   return { ok: true, pair: { en, he } };
-}
-
-// The lines of an uploaded file that hold words: numbered from 1, blank lines and # comments left out.
-function fileLines(text) {
-  return String(text ?? '')
-    .replace(/^\uFEFF/, '')
-    .split(/\r\n|\n|\r/)
-    .map((raw, index) => ({ line: index + 1, text: raw.trim() }))
-    .filter((l) => l.text && !l.text.startsWith('#'));
-}
-
-const unquote = (s) => s.trim().replace(/^(["'])(.*)\1$/, '$2').trim();
-const splitFileLine = (text) => splitLine(text, [';'])?.map(unquote) ?? null;
-
-// Hebrew–Hebrew when most lines have Hebrew on both sides and no English letters.
-export function detectKind(text) {
-  const lines = fileLines(text);
-  const hebrew = lines.filter(({ text: t }) => {
-    const parts = splitFileLine(t);
-    return parts && !LATIN.test(t) && HEBREW.test(parts[0]) && HEBREW.test(parts[1]);
-  });
-  return hebrew.length > lines.length / 2 ? KINDS.HE_HE : KINDS.EN_HE;
-}
-
-const HEADER = /english|hebrew|word|translation|אנגלית|עברית|מילה/i;
-
-// The pairs in an uploaded file, one per line ("dog,כלב", "dog - כלב", a tab...), checked against
-// `existing` and each other. Returns { pairs, skipped: [{ line, text, error }] }. A header row is dropped.
-export function importWords(text, kind = KINDS.EN_HE, existing = []) {
-  const pairs = [];
-  const skipped = [];
-  fileLines(text).forEach(({ line, text: raw }, i) => {
-    const parts = splitFileLine(raw);
-    let check = null;
-    if (parts) {
-      const [left, right] = parts;
-      if (kind === KINDS.HE_HE) check = checkPair(left, right, [...existing, ...pairs], -1, kind);
-      else if (LATIN.test(left) && HEBREW.test(right) && !HEBREW.test(left)) check = checkPair(left, right, [...existing, ...pairs], -1, kind);
-      else if (HEBREW.test(left) && LATIN.test(right) && !HEBREW.test(right)) check = checkPair(right, left, [...existing, ...pairs], -1, kind);
-    }
-    if (check?.ok) {
-      pairs.push(check.pair);
-      return;
-    }
-    if (i === 0 && HEADER.test(raw)) return;
-    skipped.push({ line, text: raw, error: check?.error ?? 'Not a word pair' });
-  });
-  return { pairs, skipped };
 }
 
 function defaultStorage() {
@@ -262,16 +214,20 @@ export class WordLibrary {
     return list;
   }
 
-  // A new list from an uploaded file, named after it and selected. Returns { ok, id, added, skipped },
-  // or { ok: false, error, skipped } (and no list) when the file has too few good pairs.
-  importFile(name, text) {
-    const kind = detectKind(text);
-    const { pairs: found, skipped } = importWords(text, kind);
-    if (found.length < MIN_PAIRS) return { ok: false, error: 'The file needs at least 2 word pairs', skipped };
-    const list = this.create(clean(String(name ?? '').replace(/\.[^.]*$/, '')) || 'Uploaded words', kind);
-    list.pairs = found;
+  // A new list from a shared word list file (src/listFile.js), selected. Pairs that don't pass checkPair
+  // are left out. Returns { ok, id, added }, or { ok: false, error } (and no list) when none are left.
+  importList({ name, kind, pairs } = {}) {
+    if (!Object.values(KINDS).includes(kind)) kind = KINDS.EN_HE;
+    const kept = (Array.isArray(pairs) ? pairs : []).reduce((ok, p) => {
+      const check = checkPair(p?.en, p?.he, ok, -1, kind);
+      if (check.ok) ok.push(check.pair);
+      return ok;
+    }, []);
+    if (!kept.length) return { ok: false, error: 'No valid words in this file' };
+    const list = this.create(name, kind);
+    list.pairs = kept;
     this.save();
-    return { ok: true, id: list.id, added: found.length, skipped };
+    return { ok: true, id: list.id, added: kept.length };
   }
 
   rename(id, name) {

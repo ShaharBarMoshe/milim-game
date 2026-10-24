@@ -22,14 +22,13 @@ const LATIN = /[A-Za-z]/;
 const SINGLE_SEPARATORS = ['-', '–', '—', ',', ':', '='];
 
 // Tab and ' - ' win over the bare characters so entries like "ice-cream - גלידה" keep their hyphen.
-// `extra` adds more single-character separators (an uploaded file also splits on ';').
-export function splitLine(line, extra = []) {
+function splitLine(line) {
   for (const sep of ['\t', ' - ']) {
     const i = line.indexOf(sep);
     if (i >= 0) return [line.slice(0, i), line.slice(i + sep.length)];
   }
   let best = -1;
-  for (const sep of [...SINGLE_SEPARATORS, ...extra]) {
+  for (const sep of SINGLE_SEPARATORS) {
     const i = line.indexOf(sep);
     if (i >= 0 && (best < 0 || i < best)) best = i;
   }
