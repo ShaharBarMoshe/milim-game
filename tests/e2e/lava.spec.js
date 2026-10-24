@@ -80,6 +80,8 @@ test('happy flow: clicking the right rocks spells the word with no mistakes', as
   expect(s.wordIndex).toBe(1);
   expect(s.lives).toBe(3);
   expect(s.score).toBe(10 * word.length + 20);
+  // A new player's total is just this game's points.
+  expect(await page.evaluate(() => window.game.scene.getScene('lava').scoreText.text)).toBe(`🪙 ${s.score}  (+${s.score})`);
 });
 
 test('the mouse pointer is visible over the game', async ({ page }) => {
@@ -137,6 +139,10 @@ test('the balloon end screen always offers the lava level, and shows success wit
   }, null, { timeout: 30_000 });
   const texts = await page.evaluate(() => window.game.scene.getScene('game').overlay.list.map((o) => o.text).filter(Boolean));
   expect(texts.some((t) => t.includes('Success: 80%'))).toBe(true);
+  // A completed round with 80% success earns the full stage bonus, saved in the wallet.
+  expect(await page.evaluate(() => window.game.scene.getScene('game').bonus)).toBe(60);
+  expect(texts.some((t) => t.includes('Stage bonus +60'))).toBe(true);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('balloon-archer-shop')).points)).toBe(60);
   const { x, y } = await button.jsonValue();
   await page.mouse.click(x, y);
   await page.waitForFunction(() => window.game.scene.getScene('lava')?.state === 'playing', null, { timeout: 30_000 });

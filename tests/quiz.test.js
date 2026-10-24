@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Quiz, DIRECTIONS, shuffle } from '../src/quiz.js';
+import { lengthBonus } from '../src/score.js';
 import { mulberry32, HEBREW_RE, LATIN_RE } from './helpers.js';
 
 const PAIRS = [
@@ -190,14 +191,14 @@ describe('Quiz.answer()', () => {
     expect(() => makeQuiz().answer('כלב')).toThrow();
   });
 
-  it('scores 10 + 2*min(streak,5) across 7 correct answers', () => {
+  it('scores 10 + 2*min(streak,5) (+ the long word bonus) across 7 correct answers', () => {
     const quiz = makeQuiz();
     const got = [];
     for (let i = 0; i < 7; i++) {
       const q = quiz.next();
       const r = quiz.answer(q.answer);
       expect(r.correct).toBe(true);
-      got.push(r.points);
+      got.push(r.points - lengthBonus(q.pair));
     }
     expect(got).toEqual([10, 12, 14, 16, 18, 20, 20]);
     const s = quiz.stats();
@@ -219,8 +220,9 @@ describe('Quiz.answer()', () => {
     expect(s.streak).toBe(0);
     expect(s.bestStreak).toBe(3);
     // streak bonus restarts from zero
-    const r2 = quiz.answer(quiz.next().answer);
-    expect(r2).toEqual({ correct: true, points: 10 });
+    const q2 = quiz.next();
+    const r2 = quiz.answer(q2.answer);
+    expect(r2).toEqual({ correct: true, points: 10 + lengthBonus(q2.pair) });
   });
 
   it('a wrong answer keeps the question so it can be answered again', () => {

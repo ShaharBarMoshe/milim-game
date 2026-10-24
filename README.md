@@ -13,6 +13,12 @@ npm run dev        # open the printed http://localhost URL
    **To the map** (needs at least 2 pairs; Ctrl+Enter works too). Pick a direction first if you like: Mixed by default (some questions
    show the English word, some the Hebrew), or English→Hebrew / Hebrew→English only.
    - **+ New list** makes an empty list; type its name in the name box.
+   - **📂 Upload file** makes a new list from a `.txt`, `.csv` or `.tsv` file (under 1 MB), named after the file.
+     One pair per line, English and Hebrew in either order, separated by a comma, tab, ` - `, `=`, `:`, `;` and so
+     on (`dog,כלב`, `"cat";"חתול"`, `בית - house`). Blank lines, lines starting with `#` and a header row
+     (`english,hebrew`) are skipped. A file whose lines are Hebrew on both sides becomes a Hebrew–Hebrew list.
+     Lines that aren't a good pair (a word twice, too long, no separator) are left out, and the message under the
+     buttons says which. The file needs at least 2 good pairs.
    - Add a word by typing the English in one box and the Hebrew in the other (Enter moves on, Enter again adds).
      Wrong input is explained (Hebrew in the English box, a word already in the list, …) and nothing is added.
    - Edit any word right in the table, or remove it with ✕. An edit that would break the list is undone.
@@ -23,13 +29,14 @@ npm run dev        # open the printed http://localhost URL
    what it is; click it to play. **Balloon Meadow** is the balloon game. **Lava Crossing** is the lava level, always open; only
    a Hebrew–Hebrew list can't open it, since it spells English words. **✎ Change words** goes back to the word lists.
 3. **Questions**: the banner shows a word and a wave of balloons rises with candidate translations.
-   - Click the right balloon: the arrow homes in and pops it. +10 points, plus 2 per answer in your current streak (up to +10).
-   - Click a wrong balloon: the arrow flies past it, −5 points (never below 0), the streak resets and the right balloon flashes.
+   - Click the right balloon: the arrow homes in and pops it. +10 points, plus 2 per answer in your current streak (up to +10),
+     plus the long word and tricky word bonuses (see **Points** below).
+   - Click a wrong balloon: the arrow flies past it, −5 points (never below what you had when the round started), the streak resets and the right balloon flashes.
    - Clicking empty sky does nothing. If the answer floats away, the answer is shown and the next question comes up.
-4. After 60 seconds you get your score, correct/wrong/missed counts, accuracy and the words to practise,
+4. After 60 seconds you get your score (the points this round added), correct/wrong/missed counts, accuracy and the words to practise,
    with **Play again**, **Lava level** and **Map**.
 
-- **Esc** in a game or the shop goes back to the map (a game left early adds no points); **Esc** on the map
+- **Esc** in a game or the shop goes back to the map (points won so far are already saved); **Esc** on the map
   opens the word lists.
 - **Mouse**: the hunter turns and draws the bow toward the cursor.
 - The hunter gallops back and forth on his own during a round and halts to shoot. **A / D** or **← / →** turn the horse around.
@@ -47,10 +54,26 @@ the browser, so only new words call the API (a word with no recording is checked
   English recording of are said (e.g. "dog", "ice cream"); others stay silent. A failed request, or one with no answer within 6 seconds, is
   skipped too; the game never waits for speech.
 
+## Points
+
+All the games share one total, saved in the browser. It never starts again from 0: the top left of each game
+shows the total (🪙) and, in brackets, what this round or game has added. Points are saved the moment you win
+them, so leaving a game early with **Esc** keeps them.
+
+- **Long words** are worth more. In the balloon game, every letter past 4 in the longer of the two words adds
+  2 points (up to +12: *house* +2, *morning* +6, *butterfly* +10). In the lava level every letter is 10 points.
+- **Tricky words** are worth more: a word you got wrong in an earlier game adds +5 a balloon (+10 a lava word)
+  for each time you missed it, up to twice. Answering it right with no mistakes takes one away. A word you miss
+  now becomes tricky from the next question it comes up in, not the current one.
+- **Completing a stage** earns a bonus. A balloon round with at least 5 right answers: +30, and +30 more at 80%
+  success or better. A lava game with every word crossed: +50, and +50 more with no mistakes. The end screen
+  shows it as ⭐ Stage bonus.
+- A typical game earns about 200–300 points with the stage bonus, and the shop prices follow that: a single-use item costs about half
+  a game, a skin a couple of games, and the best players about five.
+
 ## Trading Post (shop)
 
-Every finished balloon round and lava game adds its score to one wallet of points, shared by all the games
-and shown on the map. The **Trading Post** sign on the map opens the shop: a grid of items, one row per game.
+The points from every game go into the shop's wallet, also shown on the map. The **Trading Post** sign on the map opens the shop: a grid of items, one row per game.
 Choose an item to see its price and confirm (**Buy** / **Cancel**); the points are taken off straight away.
 
 Some items are **used up** and can be bought again and again; the shop card shows how many you have left.
@@ -61,16 +84,16 @@ them again.
 
 | Game | Item | Kind | Points |
 | --- | --- | --- | --- |
-| Balloon Meadow | More time (+15 s) | one round | 15 |
-| | Slow balloons (rise a quarter slower) | one round | 10 |
-| | Fire arrows | permanent | 15 |
-| | Golden archer / Night rider | skin | 25 / 20 |
-| Lava Crossing | Safety rope (catches you once; you keep your life) | one save | 10 |
-| | Extra life (4 instead of 3) | one game | 15 |
-| | Gold robot / Ice robot | skin | 25 / 20 |
-| Players | Girl / Boy (run and shoot arrows) | skin | 40 / 40 |
-| | Axe warrior / Axe scout / Axe girl (throw a spinning axe) | skin | 50 each |
-| | Shadow mage / Frost mage (cast magic orbs) | skin | 70 each |
+| Balloon Meadow | More time (+15 s) | one round | 150 |
+| | Slow balloons (rise a quarter slower) | one round | 100 |
+| | Fire arrows | permanent | 300 |
+| | Golden archer / Night rider | skin | 400 / 300 |
+| Lava Crossing | Safety rope (catches you once; you keep your life) | one save | 100 |
+| | Extra life (4 instead of 3) | one game | 150 |
+| | Gold robot / Ice robot | skin | 400 / 300 |
+| Players | Girl / Boy (run and shoot arrows) | skin | 600 / 600 |
+| | Axe warrior / Axe scout / Axe girl (throw a spinning axe) | skin | 800 each |
+| | Shadow mage / Frost mage (cast magic orbs) | skin | 1000 each |
 
 During a game, badges at the top right show every shop item it has on (green border: used up this game; gold: permanent).
 
@@ -90,7 +113,7 @@ Open it from **Lava Crossing** on the map or the balloon end screen's **Lava lev
   rock it starts from) the robot dangles just above the lava, keeps its life and climbs back; that rope is used
   up. Without one it falls into the lava, loses one of 3 lives and comes back on the last safe rock.
 - The end screen has **Play again**, **Balloons** and **Map**.
-- 10 points per letter, +20 for a word with no mistakes. 5 words per game, taken from your list (single words of 2–12 letters; Hebrew–Hebrew lists are spelled in Hebrew).
+- 10 points per letter, +20 for a word with no mistakes, +10 for each earlier miss of a tricky word. 5 words per game, taken from your list (single words of 2–12 letters; Hebrew–Hebrew lists are spelled in Hebrew).
 - Practice it directly: open `http://localhost:5173/?level=lava` (uses the chosen word list).
 
 ## Code
@@ -100,6 +123,8 @@ Open it from **Lava Crossing** on the map or the balloon end screen's **Lava lev
 - `src/scenes/MapScene.js`: the word list screen and the adventure map (drawn in Phaser, styled after `fantasy_rpg_adventure_map.html`).
 - `src/vocab.js`: sample pairs, and the old one-text-box word list format (read once to move it into a list).
 - `src/wordLists.js`: ready-made lists, `checkPair` validation and `WordLibrary` (create, rename, lock, delete lists; add, edit, remove pairs; saved in localStorage, never throws).
+- `src/score.js`: points for both games (`balloonPoints`, `spellingPoints`, `lengthBonus`) and `WordHistory`, the tricky words (saved in localStorage, never throws).
+- `src/shop.js`: the wallet, the catalogue and `Tally`, which saves a game's points into the wallet as they're won.
 - `src/quiz.js`: questions, options, scoring and stats (`Quiz`, `shuffle`, `DIRECTIONS`); pass `random` for determinism.
 - `src/ballistics.js`: `steer` (homing step) and `missPoint` (where a deliberate miss passes).
 - `src/ui/wordListForm.js`: the HTML word-list overlay (HTML so Hebrew typing and RTL work natively).

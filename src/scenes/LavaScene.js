@@ -4,6 +4,7 @@ import { sfx } from '../sound.js';
 import { voice } from '../speech.js';
 import { Shop } from '../shop.js';
 import { showPerks } from './perks.js';
+import { WordHistory, spellingPoints, stageBonus } from '../score.js';
 import { PLAYER_SPRITES } from '../players.js';
 import { shuffle } from '../quiz.js';
 import { SAMPLE_PAIRS } from '../vocab.js';
@@ -48,6 +49,10 @@ export default class LavaScene extends Phaser.Scene {
     this.state = 'playing';
     this.events.once('shutdown', () => voice.stop());
     this.shop = new Shop();
+    // Points go into the wallet shared by all the games as they're won.
+    this.tally = this.shop.startGame();
+    this.history = new WordHistory();
+    this.bonus = 0;
     this.lives = LIVES;
     this.score = 0;
     this.spelled = 0;
@@ -81,7 +86,7 @@ export default class LavaScene extends Phaser.Scene {
       if (rock) this.jumpTo(rock);
     });
     // Typing a letter jumps onto the rock with that letter, if the next column has one.
-    // Esc leaves the game for the map (the game's points aren't added).
+    // Esc leaves the game for the map (the points won so far are already saved).
     this.input.keyboard.on('keydown-ESC', () => this.scene.start('map'));
     this.input.keyboard.on('keydown', (event) => {
       if (event.code === 'Space') {
@@ -243,6 +248,8 @@ export default class LavaScene extends Phaser.Scene {
 
     const pair = this.words[this.wordIndex];
     this.run = new SpellingRun(pair, { choices: CHOICES });
+    // How tricky the word is as it starts: missing it now makes it worth more next game, not this one.
+    this.tricky = this.history.tricky(pair);
     voice.say(this.run.word); // English only: a Hebrew word stays silent
     this.start = this.makeRock(START_X, START_TOP, { pillar: true });
     this.rocks = [];
@@ -390,6 +397,7 @@ export default class LavaScene extends Phaser.Scene {
   sinkInLava(rock) {
     this.state = 'falling';
     this.mistakes++;
+    if (this.run.mistakes === 1) this.history.missed(this.run.pair);
     rock.alive = false;
     sfx.wrong();
     this.showMessage(`"${rock.letter}" is wrong!`, '#ff8a6a');
@@ -502,13 +510,14 @@ export default class LavaScene extends Phaser.Scene {
 
   finishWord() {
     this.state = 'jumping';
-    const points = 10 * this.run.word.length + (this.run.mistakes === 0 ? 20 : 0);
+    const points = spellingPoints(this.run.word, { mistakes: this.run.mistakes, tricky: this.tricky });
+    if (!this.run.mistakes) this.history.learned(this.run.pair);
     if (this.ropes()) this.attachRope(this.current);
     this.animateJump(this.goal, () => {
       sfx.win();
       voice.say(this.run.word);
       this.detachRope();
-      this.score += points;
+      this.score = this.tally.add(points);
       this.spelled++;
       this.robot.setFrame(ROBOT_FRAMES.frontLand);
       this.tweens.add({ targets: this.robot, y: this.robot.y - 30, duration: 180, yoyo: true, repeat: 1 });
@@ -525,9 +534,10 @@ export default class LavaScene extends Phaser.Scene {
 
   endGame(title, detail) {
     this.state = 'over';
+    // Crossing every word earns a stage bonus, on top of the score.
+    this.bonus = stageBonus('lava', { spelled: this.spelled, total: this.words.length, mistakes: this.mistakes });
+    this.score = this.tally.add(this.bonus);
     this.updateHud();
-    // The score goes into the shop wallet shared by all the games.
-    const earned = this.shop.earn(this.score);
     const items = [];
     items.push(this.add.rectangle(W / 2, H / 2, 760, 360, 0x2a0c08, 0.92).setStrokeStyle(4, 0xffb040));
     items.push(this.add.text(W / 2, H / 2 - 120, title, {
@@ -535,7 +545,8 @@ export default class LavaScene extends Phaser.Scene {
     }).setOrigin(0.5));
     items.push(this.add.text(W / 2, H / 2 - 30,
       `${detail}\nWords spelled: ${this.spelled} / ${this.words.length}   Mistakes: ${this.mistakes}\n` +
-      `Score: ${this.score}   🪙 +${earned} for the shop (${this.shop.points} in all)`, {
+      (this.bonus ? `⭐ Stage bonus +${this.bonus}\n` : '') +
+      `Score: ${this.score}   🪙 +${this.score} this game, ${this.shop.points} in all`, {
         fontFamily: FONT, fontSize: '24px', color: '#ffffff', align: 'center', lineSpacing: 10,
       }).setOrigin(0.5));
     const by = H / 2 + 115;
@@ -589,7 +600,8 @@ export default class LavaScene extends Phaser.Scene {
 
   updateHud() {
     this.livesText.setText('❤ '.repeat(Math.max(0, this.lives)).trim() || '—');
-    this.scoreText.setText(`Score: ${this.score}`);
+    // The wallet total, which every game adds to, and this game's share of it.
+    this.scoreText.setText(`🪙 ${this.tally.total}  (+${this.score})`);
     this.wordText.setText(this.words.length ? `Word ${Math.min(this.wordIndex + 1, this.words.length)} / ${this.words.length}` : '');
     if (this.run) {
       const hebrew = this.run.lang === 'he';

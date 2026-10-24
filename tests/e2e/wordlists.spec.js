@@ -144,3 +144,19 @@ test('a Hebrew–Hebrew list takes Hebrew on both sides and plays in Hebrew', as
   const q = await page.evaluate(() => window.game.scene.getScene('game').quiz.current);
   for (const word of [q.prompt, ...q.options]) expect(word).toMatch(/^[֐-׿ ]+$/);
 });
+
+test('uploading a file of words makes a new list, reports bad lines, and plays', async ({ page }) => {
+  const csv = '\uFEFFEnglish,Hebrew\r\ndog,כלב\r\ncat,חתול\r\nsun,שמש\r\nnot a pair\r\n';
+  await page.setInputFiles('#word-file', { name: 'animals.csv', mimeType: 'text/csv', buffer: Buffer.from(csv, 'utf8') });
+
+  await expect(page.locator('#word-upload-status')).toContainText('Added 3 words from animals.csv');
+  await expect(page.locator('#word-upload-status')).toContainText('not a pair');
+  await expect(page.locator('#list-name')).toHaveValue('animals');
+  expect(await page.locator('#list-select option:checked').textContent()).toMatch(/^animals/);
+  expect(await rows(page)).toEqual([['dog', 'כלב'], ['cat', 'חתול'], ['sun', 'שמש']]);
+
+  // Saved, and playable straight away.
+  await playBalloons(page);
+  const words = await page.evaluate(() => window.game.scene.getScene('game').pairs.map((p) => p.en));
+  expect(words.sort()).toEqual(['cat', 'dog', 'sun']);
+});

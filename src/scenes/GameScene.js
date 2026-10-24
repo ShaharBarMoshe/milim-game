@@ -7,6 +7,7 @@ import { steer, missPoint } from '../ballistics.js';
 import { currentWords } from './MapScene.js';
 import { spellingTarget, successRate } from '../spelling.js';
 import { Shop } from '../shop.js';
+import { WordHistory, stageBonus } from '../score.js';
 import { showPerks } from './perks.js';
 import { PLAYER_SPRITES, PROJECTILES } from '../players.js';
 
@@ -84,6 +85,7 @@ export default class GameScene extends Phaser.Scene {
     this.rideDir = 1;
     this.best = loadBest();
     this.shop = new Shop();
+    this.history = new WordHistory();
 
     this.drawBackground();
     this.createArcher();
@@ -104,7 +106,7 @@ export default class GameScene extends Phaser.Scene {
 
     // No key capture: the word-list form must still receive A, D and the arrow keys.
     this.keys = this.input.keyboard.addKeys('A,D,LEFT,RIGHT', false);
-    // Esc leaves the round for the map (the round's points aren't added).
+    // Esc leaves the round for the map (the points won so far are already saved).
     this.input.keyboard.on('keydown-ESC', () => this.scene.start('map'));
     this.input.on('pointerdown', (pointer) => {
       if (pointer.leftButtonDown() && this.state === 'playing') this.handleClick(pointer.worldX, pointer.worldY);
@@ -217,7 +219,10 @@ export default class GameScene extends Phaser.Scene {
     this.clearWave(false);
     this.pairs = pairs;
     this.direction = direction;
-    this.quiz = new Quiz(pairs, { direction, optionCount: OPTION_COUNT });
+    this.quiz = new Quiz(pairs, { direction, optionCount: OPTION_COUNT, history: this.history });
+    // Points go into the wallet shared by all the games as they're won.
+    this.tally = this.shop.startGame();
+    this.bonus = 0;
     // Single-use shop items: each round takes one of each from the stock, if there is one.
     this.boosts = { time: this.shop.use('balloons-time'), slow: this.shop.use('balloons-slow') };
     this.resetStats();
@@ -265,13 +270,15 @@ export default class GameScene extends Phaser.Scene {
     this.stopTimers();
     this.clearWave(true);
     this.banner.setVisible(false);
+    // Completing the round earns a stage bonus, on top of the score.
+    this.bonus = stageBonus('balloons', this.quiz.stats());
+    this.score = this.tally.add(this.bonus);
+    this.updateHud();
     const isBest = this.score > this.best;
     if (isBest) {
       this.best = this.score;
       saveBest(this.best);
     }
-    // The score goes into the shop wallet shared by all the games.
-    this.earned = this.shop.earn(this.score);
     this.time.delayedCall(300, () => this.state === 'over' && this.showEndScreen(isBest));
   }
 
@@ -291,9 +298,9 @@ export default class GameScene extends Phaser.Scene {
       fontFamily: FONT, fontSize: '50px', fontStyle: 'bold', color: '#ffe066', stroke: '#000', strokeThickness: 6,
     }).setOrigin(0.5));
     items.push(this.add.text(W / 2, top + 130,
-      `Score: ${this.score}     Best: ${this.best}\n` +
+      `Score: ${this.score}     Best: ${this.best}${this.bonus ? `     ⭐ Stage bonus +${this.bonus}` : ''}\n` +
       `Correct: ${s.correct}   Wrong: ${s.wrong}   Missed: ${s.missed}   Success: ${successRate(s)}%\n` +
-      `Best streak: ${s.bestStreak}   🪙 +${this.earned ?? 0} for the shop (${this.shop.points} in all)`, {
+      `Best streak: ${s.bestStreak}   🪙 +${this.score} this round, ${this.shop.points} in all`, {
         fontFamily: FONT, fontSize: '24px', color: '#ffffff', align: 'center', lineSpacing: 8,
       }).setOrigin(0.5));
 
@@ -349,7 +356,8 @@ export default class GameScene extends Phaser.Scene {
   updateHud() {
     const playing = this.state !== 'setup';
     const stats = this.quiz?.stats();
-    this.scoreText.setText(playing ? `Score: ${this.score}` : '');
+    // The wallet total, which every game adds to, and this round's share of it.
+    this.scoreText.setText(playing && this.tally ? `🪙 ${this.tally.total}  (+${this.score})` : '');
     this.timeText.setText(playing ? `⏱ ${Math.max(0, this.timeLeft)}` : '');
     this.timeText.setColor(this.timeLeft <= 10 ? '#ff6b6b' : '#ffffff');
     this.accText.setText(playing && stats ? `Success: ${successRate(stats)}%` : '');
@@ -456,7 +464,7 @@ export default class GameScene extends Phaser.Scene {
     if (!balloon || balloon.tried) return;
 
     const { correct, points } = this.quiz.answer(balloon.word);
-    this.score = Math.max(0, this.score + points);
+    this.score = this.tally.add(points);
     if (correct) {
       this.waveResolved = true;
       balloon.targeted = true;

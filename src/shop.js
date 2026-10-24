@@ -7,25 +7,27 @@ export const SHOP_KEY = 'balloon-archer-shop';
 // (`lasts` says when: a round or game takes one from the stock at its start, a rope when it saves you);
 // 'upgrade' is bought once and works for good; 'skin' is bought once and worn one per `slot`, swapped for
 // free. `icon` names how the shop screen draws it.
+// Prices are set against a typical game, which earns about 250 points with its stage bonus: a single-use item costs half
+// a game or so, a skin a few games, the best players about five (tests/shop.test.js checks the balance).
 export const ITEMS = [
-  { id: 'balloons-time', game: 'balloons', kind: 'single', name: 'More time', short: '+15 s', about: '+15 seconds for one round', cost: 15, icon: 'clock', lasts: 'one round' },
-  { id: 'balloons-slow', game: 'balloons', kind: 'single', name: 'Slow balloons', short: 'Slow', about: 'Balloons rise a quarter slower for one round', cost: 10, icon: 'balloon', lasts: 'one round' },
-  { id: 'balloons-fire', game: 'balloons', kind: 'upgrade', name: 'Fire arrows', short: 'Fire', about: 'Blazing orange arrows, for good', cost: 15, icon: 'arrow' },
-  { id: 'archer-gold', game: 'balloons', kind: 'skin', slot: 'archer', name: 'Golden archer', short: 'Gold', about: 'A rider dipped in gold', cost: 25, icon: 'hunter', tint: 0xffd166 },
-  { id: 'archer-night', game: 'balloons', kind: 'skin', slot: 'archer', name: 'Night rider', short: 'Night', about: 'Dark as a moonless night', cost: 20, icon: 'hunter', tint: 0x7b8cde },
-  { id: 'lava-rope', game: 'lava', kind: 'single', name: 'Safety rope', short: 'Rope', about: 'Catches you once: keep your life on a wrong letter', cost: 10, icon: 'rope', lasts: 'one save' },
-  { id: 'lava-life', game: 'lava', kind: 'single', name: 'Extra life', short: '+1 life', about: '4 lives instead of 3 for one game', cost: 15, icon: 'heart', lasts: 'one game' },
-  { id: 'robot-gold', game: 'lava', kind: 'skin', slot: 'robot', name: 'Gold robot', short: 'Gold', about: 'Shiny and fireproof-looking', cost: 25, icon: 'robot', tint: 0xffc94d },
-  { id: 'robot-ice', game: 'lava', kind: 'skin', slot: 'robot', name: 'Ice robot', short: 'Ice', about: 'Cool under pressure', cost: 20, icon: 'robot', tint: 0x8fd3ff },
+  { id: 'balloons-time', game: 'balloons', kind: 'single', name: 'More time', short: '+15 s', about: '+15 seconds for one round', cost: 150, icon: 'clock', lasts: 'one round' },
+  { id: 'balloons-slow', game: 'balloons', kind: 'single', name: 'Slow balloons', short: 'Slow', about: 'Balloons rise a quarter slower for one round', cost: 100, icon: 'balloon', lasts: 'one round' },
+  { id: 'balloons-fire', game: 'balloons', kind: 'upgrade', name: 'Fire arrows', short: 'Fire', about: 'Blazing orange arrows, for good', cost: 300, icon: 'arrow' },
+  { id: 'archer-gold', game: 'balloons', kind: 'skin', slot: 'archer', name: 'Golden archer', short: 'Gold', about: 'A rider dipped in gold', cost: 400, icon: 'hunter', tint: 0xffd166 },
+  { id: 'archer-night', game: 'balloons', kind: 'skin', slot: 'archer', name: 'Night rider', short: 'Night', about: 'Dark as a moonless night', cost: 300, icon: 'hunter', tint: 0x7b8cde },
+  { id: 'lava-rope', game: 'lava', kind: 'single', name: 'Safety rope', short: 'Rope', about: 'Catches you once: keep your life on a wrong letter', cost: 100, icon: 'rope', lasts: 'one save' },
+  { id: 'lava-life', game: 'lava', kind: 'single', name: 'Extra life', short: '+1 life', about: '4 lives instead of 3 for one game', cost: 150, icon: 'heart', lasts: 'one game' },
+  { id: 'robot-gold', game: 'lava', kind: 'skin', slot: 'robot', name: 'Gold robot', short: 'Gold', about: 'Shiny and fireproof-looking', cost: 400, icon: 'robot', tint: 0xffc94d },
+  { id: 'robot-ice', game: 'lava', kind: 'skin', slot: 'robot', name: 'Ice robot', short: 'Ice', about: 'Cool under pressure', cost: 300, icon: 'robot', tint: 0x8fd3ff },
   // Players replace the horse archer and the robot in both games.
   // `sprite` names the player's sheets (src/players.js).
-  { id: 'player-girl', game: 'players', kind: 'skin', slot: 'player', name: 'Girl', short: 'Girl', about: 'Runs and shoots arrows', cost: 40, icon: 'player', sprite: 'kid_girl' },
-  { id: 'player-boy', game: 'players', kind: 'skin', slot: 'player', name: 'Boy', short: 'Boy', about: 'Runs and shoots arrows', cost: 40, icon: 'player', sprite: 'kid_boy' },
-  { id: 'player-axe-boy', game: 'players', kind: 'skin', slot: 'player', name: 'Axe warrior', short: 'Warrior', about: 'Throws a spinning axe', cost: 50, icon: 'player', sprite: 'char_axe-boy' },
-  { id: 'player-axe-scout', game: 'players', kind: 'skin', slot: 'player', name: 'Axe scout', short: 'Scout', about: 'Throws a spinning axe', cost: 50, icon: 'player', sprite: 'char_axe-scout' },
-  { id: 'player-axe-girl', game: 'players', kind: 'skin', slot: 'player', name: 'Axe girl', short: 'Axe girl', about: 'Throws a spinning axe', cost: 50, icon: 'player', sprite: 'char_axe-girl' },
-  { id: 'player-shadow-mage', game: 'players', kind: 'skin', slot: 'player', name: 'Shadow mage', short: 'Shadow', about: 'Casts purple magic orbs', cost: 70, icon: 'player', sprite: 'char_shadow-mage' },
-  { id: 'player-frost-mage', game: 'players', kind: 'skin', slot: 'player', name: 'Frost mage', short: 'Frost', about: 'Casts glowing frost orbs', cost: 70, icon: 'player', sprite: 'char_frost-mage' },
+  { id: 'player-girl', game: 'players', kind: 'skin', slot: 'player', name: 'Girl', short: 'Girl', about: 'Runs and shoots arrows', cost: 600, icon: 'player', sprite: 'kid_girl' },
+  { id: 'player-boy', game: 'players', kind: 'skin', slot: 'player', name: 'Boy', short: 'Boy', about: 'Runs and shoots arrows', cost: 600, icon: 'player', sprite: 'kid_boy' },
+  { id: 'player-axe-boy', game: 'players', kind: 'skin', slot: 'player', name: 'Axe warrior', short: 'Warrior', about: 'Throws a spinning axe', cost: 800, icon: 'player', sprite: 'char_axe-boy' },
+  { id: 'player-axe-scout', game: 'players', kind: 'skin', slot: 'player', name: 'Axe scout', short: 'Scout', about: 'Throws a spinning axe', cost: 800, icon: 'player', sprite: 'char_axe-scout' },
+  { id: 'player-axe-girl', game: 'players', kind: 'skin', slot: 'player', name: 'Axe girl', short: 'Axe girl', about: 'Throws a spinning axe', cost: 800, icon: 'player', sprite: 'char_axe-girl' },
+  { id: 'player-shadow-mage', game: 'players', kind: 'skin', slot: 'player', name: 'Shadow mage', short: 'Shadow', about: 'Casts purple magic orbs', cost: 1000, icon: 'player', sprite: 'char_shadow-mage' },
+  { id: 'player-frost-mage', game: 'players', kind: 'skin', slot: 'player', name: 'Frost mage', short: 'Frost', about: 'Casts glowing frost orbs', cost: 1000, icon: 'player', sprite: 'char_frost-mage' },
 ];
 
 export const GAMES = [
@@ -75,7 +77,12 @@ export class Shop {
     }
   }
 
-  // A finished game's score goes into the wallet.
+  // A game's points, saved into the wallet as they're won (see Tally).
+  startGame() {
+    return new Tally(this);
+  }
+
+  // Points added straight to the wallet.
   earn(score) {
     const points = Math.max(0, Math.floor(Number(score) || 0));
     this.points += points;
@@ -144,5 +151,30 @@ export class Shop {
     else this.worn[it.slot] = id;
     this.save();
     return true;
+  }
+}
+
+// One game's score on top of the wallet it started from. Every change is saved at once, so the total on
+// screen is the one in the shop, and a game left early keeps what it won. Wrong answers take back points
+// won in this game, never ones from before it.
+export class Tally {
+  constructor(shop) {
+    this.shop = shop;
+    this.start = shop.points;
+    this.score = 0;
+  }
+
+  get total() {
+    return this.start + this.score;
+  }
+
+  // Add (or, when negative, take back) points; returns the game's score.
+  add(points) {
+    const score = Math.max(0, this.score + Math.round(Number(points) || 0));
+    if (score === this.score) return score;
+    this.score = score;
+    this.shop.points = this.total;
+    this.shop.save();
+    return score;
   }
 }

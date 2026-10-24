@@ -1,11 +1,8 @@
 // Question/answer/scoring logic for the vocabulary game. Phaser-free; pass `random` for determinism.
 
-export const DIRECTIONS = { EN_HE: 'en-he', HE_EN: 'he-en', MIXED: 'mixed' };
+import { WRONG_POINTS, balloonPoints } from './score.js';
 
-const BASE_POINTS = 10;
-const STREAK_BONUS = 2;
-const MAX_STREAK_BONUS_STEPS = 5;
-const WRONG_POINTS = -5;
+export const DIRECTIONS = { EN_HE: 'en-he', HE_EN: 'he-en', MIXED: 'mixed' };
 
 export function shuffle(array, random = Math.random) {
   const out = [...array];
@@ -17,12 +14,14 @@ export function shuffle(array, random = Math.random) {
 }
 
 export class Quiz {
-  constructor(pairs, { direction = DIRECTIONS.EN_HE, optionCount = 4, random = Math.random } = {}) {
+  // `history` (a WordHistory) makes tricky words worth more and remembers this game's misses.
+  constructor(pairs, { direction = DIRECTIONS.EN_HE, optionCount = 4, random = Math.random, history = null } = {}) {
     if (!Array.isArray(pairs) || pairs.length < 2) throw new Error('Quiz needs at least 2 word pairs');
     this.pairs = pairs.map(({ en, he }) => ({ en, he }));
     this.direction = direction;
     this.optionCount = optionCount;
     this.random = random;
+    this.history = history;
     this.current = null;
     this.lastIndex = -1;
     this.streak = 0;
@@ -66,14 +65,17 @@ export class Quiz {
     const distractors = shuffle(candidates, this.random).slice(0, Math.max(0, count - 1));
     const options = shuffle([answer, ...distractors], this.random);
 
-    this.current = { prompt: pair[promptKey], answer, options, direction, pair };
+    // How tricky the word is when it's asked, so missing it now doesn't raise this question's points.
+    const tricky = this.history?.tricky(pair) ?? 0;
+    this.current = { prompt: pair[promptKey], answer, options, direction, pair, tricky, wrongTries: 0 };
     return this.current;
   }
 
   answer(option) {
     if (!this.current) throw new Error('No current question');
     if (option === this.current.answer) {
-      const points = BASE_POINTS + STREAK_BONUS * Math.min(this.streak, MAX_STREAK_BONUS_STEPS);
+      const points = balloonPoints(this.current.pair, { streak: this.streak, tricky: this.current.tricky });
+      if (!this.current.wrongTries) this.history?.learned(this.current.pair);
       this.correct++;
       this.streak++;
       this.bestStreak = Math.max(this.bestStreak, this.streak);
@@ -81,6 +83,7 @@ export class Quiz {
     }
     this.wrong++;
     this.streak = 0;
+    if (!this.current.wrongTries++) this.history?.missed(this.current.pair);
     this.recordMiss(this.current.pair);
     return { correct: false, points: WRONG_POINTS };
   }
@@ -89,6 +92,7 @@ export class Quiz {
     if (!this.current) return;
     this.missed++;
     this.streak = 0;
+    if (!this.current.wrongTries) this.history?.missed(this.current.pair);
     this.recordMiss(this.current.pair);
   }
 

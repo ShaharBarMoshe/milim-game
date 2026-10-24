@@ -5,6 +5,7 @@ import { DIRECTIONS } from '../quiz.js';
 import { KIND_LABELS, KINDS, MIN_PAIRS, WordLibrary } from '../wordLists.js';
 
 let root = null;
+const MAX_FILE_BYTES = 1024 * 1024;
 
 export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart, library = WordLibrary.load() } = {}) {
   hideWordListForm();
@@ -19,7 +20,10 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
       <div class="list-bar">
         <label>Word list <select id="list-select"></select></label>
         <button type="button" id="list-new" class="word-secondary">+ New list</button>
+        <button type="button" id="word-upload" class="word-secondary">📂 Upload file</button>
+        <input type="file" id="word-file" hidden accept=".txt,.csv,.tsv,text/plain,text/csv,text/tab-separated-values" />
       </div>
+      <div id="word-upload-status" class="word-summary" role="status"></div>
       <div class="list-head">
         <input id="list-name" aria-label="List name" maxlength="40" autocomplete="off" />
         <select id="list-kind" aria-label="Kind of list">
@@ -71,6 +75,8 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
   const summary = $('#word-summary');
   const direction = $('#word-direction');
   const start = $('#word-start');
+  const file = $('#word-file');
+  const uploadStatus = $('#word-upload-status');
   if ([...direction.options].some((o) => o.value === initialDirection)) direction.value = initialDirection;
 
   let deleteArmed = null; // timer while "Delete list" waits for its confirming second click
@@ -201,6 +207,40 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
     render();
     name.focus();
     name.select();
+  });
+  // A word file (one pair per line) becomes a new list, named after the file.
+  $('#word-upload').addEventListener('click', () => file.click());
+  file.addEventListener('change', async () => {
+    const chosen = file.files?.[0];
+    file.value = ''; // so the same file can be chosen again
+    if (!chosen) return;
+    const say = (message, ok) => {
+      uploadStatus.textContent = message;
+      uploadStatus.className = `word-summary ${ok ? 'word-ok' : 'word-bad'}`;
+    };
+    if (chosen.size > MAX_FILE_BYTES) {
+      say(`${chosen.name} is too big: a word file must be under 1 MB`, false);
+      return;
+    }
+    let text;
+    try {
+      text = await chosen.text();
+    } catch {
+      say(`Couldn't read ${chosen.name}`, false);
+      return;
+    }
+    const result = library.importFile(chosen.name, text);
+    const skipped = result.skipped.length
+      ? ` (skipped ${result.skipped.length}: ${result.skipped.slice(0, 3).map((s) => `line ${s.line} "${s.text}" – ${s.error}`).join('; ')}${result.skipped.length > 3 ? '; …' : ''})`
+      : '';
+    if (!result.ok) {
+      say(`${result.error}${skipped}`, false);
+      return;
+    }
+    disarmDelete();
+    showError(null);
+    render();
+    say(`Added ${result.added} words from ${chosen.name}${skipped}`, true);
   });
   kind.addEventListener('change', () => {
     library.setKind(library.selectedId, kind.value);
