@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { pairs, useWords } from './words.js';
-import { clickButton, clickMapSpot, mapSpot } from './play.js';
+import { clickMapSpot, mapSpot } from './play.js';
 
 const WORDS = pairs('dog=כלב', 'cat=חתול', 'sun=שמש');
 
@@ -53,38 +53,33 @@ test('clicking Balloon Meadow starts the balloon game with the chosen words', as
   expect(['dog', 'cat', 'sun', 'כלב', 'חתול', 'שמש']).toContain(prompt);
 });
 
-test('Lava Crossing is locked until a balloon round is won, then it starts the lava level', async ({ page }) => {
+test('Lava Crossing is open from the start and starts the lava level with the chosen words', async ({ page }) => {
   await toMap(page);
+  expect((await map(page)).lava.locked).toBeNull();
   const lava = await mapSpot(page, 'lava');
   await page.mouse.move(lava.x, lava.y);
-  await expect.poll(async () => (await map(page)).tooltip).toContain('Locked');
-  await page.mouse.click(lava.x, lava.y);
-  await page.waitForTimeout(600);
-  expect(await page.evaluate(() => window.game.scene.isActive('lava'))).toBe(false);
+  await expect.poll(async () => (await map(page)).tooltip).toContain('Click to play');
+  // The right side of the marker counts too (its hit area used to cover only the left half).
+  await page.mouse.click(lava.x + 45, lava.y);
+  await page.waitForFunction(() => window.game.scene.getScene('lava')?.state === 'playing', null, { timeout: 30_000 });
+  const words = await page.evaluate(() => window.game.scene.getScene('lava').words.map((w) => w.en).sort());
+  expect(words).toEqual(['cat', 'dog', 'sun']);
+});
 
-  // Win a round (9 of 10 right), then come back by the end screen's Map button.
-  await clickMapSpot(page, 'balloons');
-  await page.waitForFunction(() => window.game.scene.getScene('game')?.state === 'playing', null, { timeout: 30_000 });
-  await page.evaluate(() => {
-    const scene = window.game.scene.getScene('game');
-    for (let i = 0; i < 10; i++) {
-      scene.quiz.next();
-      scene.quiz.answer(i < 9 ? scene.quiz.current.answer : scene.quiz.current.options.find((o) => o !== scene.quiz.current.answer));
-    }
-    scene.endRound();
-  });
-  await clickButton(page, 'game', 'Map');
-  await page.waitForFunction(() => window.game.scene.getScene('map')?.state === 'map', null, { timeout: 30_000 });
-  expect((await map(page)).lava.locked).toBeNull();
-  // The map says so the first time back.
-  await expect.poll(() => page.evaluate(() => window.game.scene.getScene('map').announcement?.text)).toContain('Lava Crossing is open');
-
-  // Still open after a reload.
-  await page.reload();
+test('a Hebrew–Hebrew list opens Lava Crossing too, and its words are spelled in Hebrew', async ({ page }) => {
+  await useWords(page, pairs('חם=קר', 'גדול=קטן'), '/', 'he-he');
   await toMap(page);
   expect((await map(page)).lava.locked).toBeNull();
   await clickMapSpot(page, 'lava');
   await page.waitForFunction(() => window.game.scene.getScene('lava')?.state === 'playing', null, { timeout: 30_000 });
-  const words = await page.evaluate(() => window.game.scene.getScene('lava').words.map((w) => w.en).sort());
-  expect(words).toEqual(['cat', 'dog', 'sun']);
+  const run = await page.evaluate(() => {
+    const s = window.game.scene.getScene('lava');
+    return { word: s.run.word, prompt: s.promptText.text, letters: s.nextRocks().map((r) => r.letter) };
+  });
+  expect(['קר', 'קטן']).toContain(run.word);
+  expect(run.prompt).toBe(run.word === 'קר' ? 'חם' : 'גדול');
+  run.letters.forEach((l) => expect(l).toMatch(/^[א-ת]$/));
+  // Type the first letter on an English keyboard: the Hebrew key under it counts (E is ק).
+  await page.keyboard.press('e');
+  await page.waitForFunction(() => window.game.scene.getScene('lava').run.position === 1, null, { timeout: 30_000 });
 });

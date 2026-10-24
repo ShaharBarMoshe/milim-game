@@ -89,3 +89,45 @@ test('says the English word at the start of every question, and again once it is
   expect(new Set(asked).size).toBe(asked.length);
   for (const word of asked) expect(['dog', 'cat', 'house', 'sun']).toContain(word);
 });
+
+test('the lava level says its word, and again from the 🔊 button or Space', async ({ page }) => {
+  await page.route(DICTIONARY, (route) =>
+    route.fulfill({ json: { query: { pages: [{ title: 'File:en-us-word.ogg', imageinfo: [{ url: 'https://audio.invalid/word.ogg' }] }] } } }));
+  await useWords(page, WORDS, '/?level=lava');
+  await page.waitForFunction(() => window.game?.scene?.getScene('lava')?.state === 'playing', null, { timeout: 30_000 });
+  await recordSpeech(page);
+  const word = await page.evaluate(() => window.game.scene.getScene('lava').run.word);
+
+  const btn = await page.evaluate(({ W, H }) => {
+    const b = window.game.scene.getScene('lava').sayButton;
+    const r = window.game.canvas.getBoundingClientRect();
+    return { x: r.left + (b.x * r.width) / W, y: r.top + (b.y * r.height) / H };
+  }, { W: GAME_W, H: GAME_H });
+  await page.mouse.click(btn.x, btn.y);
+  await expect.poll(async () => (await said(page)).map((e) => e.text)).toEqual([word]);
+  await page.keyboard.press('Space');
+  await expect.poll(async () => (await said(page)).map((e) => e.text)).toEqual([word, word]);
+  // Neither moved the robot.
+  expect(await page.evaluate(() => window.game.scene.getScene('lava').run.position)).toBe(0);
+});
+
+test('a word is looked up once: after a reload the saved answer is used', async ({ page }) => {
+  const asked = [];
+  await page.route(DICTIONARY, (route) => {
+    asked.push(new URL(route.request().url()).searchParams.get('titles'));
+    return route.fulfill({ json: { query: { pages: [{ title: 'File:en-us-word.ogg', imageinfo: [{ url: 'https://audio.invalid/word.ogg' }] }] } } });
+  });
+  await useWords(page, WORDS, '/?level=lava');
+  await page.waitForFunction(() => window.game?.scene?.getScene('lava')?.state === 'playing', null, { timeout: 30_000 });
+  const word = await page.evaluate(() => window.game.scene.getScene('lava').run.word);
+  await expect.poll(() => asked).toEqual([word]);
+
+  await page.reload();
+  await page.waitForFunction(() => window.game?.scene?.getScene('lava')?.state === 'playing', null, { timeout: 30_000 });
+  await recordSpeech(page);
+  await page.keyboard.press('Space');
+  await expect.poll(async () => (await said(page)).length).toBe(1);
+  const again = await page.evaluate(() => window.game.scene.getScene('lava').run.word);
+  // Only a word this browser hasn't seen yet goes to the API.
+  expect(asked).toEqual(again === word ? [word] : [word, again]);
+});

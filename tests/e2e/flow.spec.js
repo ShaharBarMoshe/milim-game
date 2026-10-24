@@ -44,13 +44,12 @@ async function changeWords(page) {
   await page.mouse.click(pos.x, pos.y);
 }
 
-// Shoot right balloons until the round is good enough for the lava level (5+ right, 90%+), then end it.
+// Shoot three right balloons, then end the round.
 async function winBalloonRound(page) {
   for (;;) {
     const { stats } = await snapshot(page);
-    const asked = stats.correct + stats.wrong + stats.missed;
-    if (stats.correct >= 5 && stats.correct / asked >= 0.9) break;
-    if ((await gameState(page)) !== 'playing') throw new Error('the round ended before it was won');
+    if (stats.correct >= 3) break;
+    if ((await gameState(page)) !== 'playing') throw new Error('the round ended too soon');
     await clickBalloon(page, 'correct');
     await page.waitForFunction((n) => window.game.scene.getScene('game').quiz.stats().correct === n, stats.correct + 1, { timeout: 30_000 });
   }

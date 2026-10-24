@@ -5,8 +5,7 @@ import { voice } from '../speech.js';
 import { Quiz, DIRECTIONS } from '../quiz.js';
 import { steer, missPoint } from '../ballistics.js';
 import { currentWords } from './MapScene.js';
-import { openLava } from '../progress.js';
-import { lavaUnlocked, spellingWord, successRate, UNLOCK_MIN_CORRECT, UNLOCK_SUCCESS } from '../spelling.js';
+import { spellingTarget, successRate } from '../spelling.js';
 
 const W = 1280;
 const H = 720;
@@ -252,10 +251,9 @@ export default class GameScene extends Phaser.Scene {
     const shown = s.missedPairs.slice(0, 12);
     const rows = shown.length > 6 ? Math.ceil(shown.length / 2) : shown.length;
     const extra = s.missedPairs.length > shown.length ? 30 : 0;
-    // The lava level spells English words, so a Hebrew–Hebrew list doesn't lead there.
-    const canSpell = this.pairs.some((p) => spellingWord(p.en));
-    const unlocked = canSpell && lavaUnlocked(s);
-    const panelH = 330 + (unlocked ? 50 : 0) + (shown.length ? 80 + rows * 32 + extra : 0);
+    // Only a list with nothing to spell (just phrases or very long words) has no lava level.
+    const canSpell = this.pairs.some((p) => spellingTarget(p));
+    const panelH = 330 + (shown.length ? 80 + rows * 32 + extra : 0);
     const top = H / 2 - panelH / 2;
     items.push(this.add.rectangle(W / 2, H / 2, 820, panelH, 0x1d3557, 0.9).setStrokeStyle(4, 0xffffff));
     items.push(this.add.text(W / 2, top + 50, isBest ? 'NEW BEST!' : "TIME'S UP!", {
@@ -288,31 +286,14 @@ export default class GameScene extends Phaser.Scene {
     }
 
     const by = top + panelH - 55;
-    if (unlocked) {
-      // 90%+ of the questions right opens the lava spelling level, on the map too. The registry keeps
-      // it even if the browser can't save it; 'lavaJustOpened' lets the map announce it once.
-      if (!this.registry.get('lavaOpen')) this.registry.set('lavaJustOpened', true);
-      this.registry.set('lavaOpen', true);
-      openLava();
-      items.push(this.add.text(W / 2, by - 62, `🌋 ${successRate(s)}% success — Lava spelling level unlocked!`, {
-        fontFamily: FONT, fontSize: '24px', fontStyle: 'bold', color: '#ffb36b', stroke: '#000', strokeThickness: 4,
-      }).setOrigin(0.5));
-      items.push(this.makeButton(W / 2 - 260, by, 'Play again', 0x2e9e4f, () => this.startRound()));
-      items.push(this.makeButton(W / 2, by, 'Lava level', 0xc0480e, () => this.scene.start('lava', { pairs: this.pairs })));
-      items.push(this.makeButton(W / 2 + 260, by, 'Map', 0x3a6ea5, () => this.scene.start('map')));
-    } else {
-      if (canSpell && s.correct + s.wrong + s.missed > 0) {
-        // Say why it is still locked; escaped balloons count against success.
-        const why = s.correct < UNLOCK_MIN_CORRECT
-          ? `Get at least ${UNLOCK_MIN_CORRECT} right and ${UNLOCK_SUCCESS}% success to unlock the lava level`
-          : `${successRate(s)}% success${s.missed ? ` (${s.missed} escaped balloons count as misses)` : ''}, need ${UNLOCK_SUCCESS}% for the lava level`;
-        items.push(this.add.text(W / 2, by - 50, why, {
-          fontFamily: FONT, fontSize: '18px', color: '#cfe8ff',
-        }).setOrigin(0.5));
-      }
-      items.push(this.makeButton(W / 2 - 130, by, 'Play again', 0x2e9e4f, () => this.startRound()));
-      items.push(this.makeButton(W / 2 + 130, by, 'Map', 0x3a6ea5, () => this.scene.start('map')));
-    }
+    const buttons = [
+      ['Play again', 0x2e9e4f, () => this.startRound()],
+      canSpell && ['Lava level', 0xc0480e, () => this.scene.start('lava', { pairs: this.pairs })],
+      ['Map', 0x3a6ea5, () => this.scene.start('map')],
+    ].filter(Boolean);
+    buttons.forEach(([label, color, onClick], i) => {
+      items.push(this.makeButton(W / 2 + (i - (buttons.length - 1) / 2) * 260, by, label, color, onClick));
+    });
     this.overlay = this.add.container(0, 0, items).setDepth(95);
   }
 

@@ -114,34 +114,7 @@ test('typing the letters spells the word', async ({ page }) => {
   expect(s.lives).toBe(3);
 });
 
-test('90% success in the balloon game unlocks the lava level', async ({ page }) => {
-  await page.goto('/');
-  await playBalloons(page);
-  // 9 right and 1 wrong answer = 90%, then end the round.
-  await page.evaluate(() => {
-    const scene = window.game.scene.getScene('game');
-    const quiz = scene.quiz;
-    for (let i = 0; i < 9; i++) {
-      quiz.next();
-      quiz.answer(quiz.current.answer);
-    }
-    quiz.next();
-    quiz.answer(quiz.current.options.find((o) => o !== quiz.current.answer));
-    scene.endRound();
-  });
-  const button = await page.waitForFunction(() => {
-    const scene = window.game.scene.getScene('game');
-    const btn = scene.overlay?.list.find((o) => o.text === 'Lava level');
-    if (!btn) return null;
-    const rect = window.game.canvas.getBoundingClientRect();
-    return { x: rect.left + (btn.x * rect.width) / 1280, y: rect.top + (btn.y * rect.height) / 720 };
-  }, null, { timeout: 30_000 });
-  const { x, y } = await button.jsonValue();
-  await page.mouse.click(x, y);
-  await page.waitForFunction(() => window.game.scene.getScene('lava')?.state === 'playing', null, { timeout: 30_000 });
-});
-
-test('escaped balloons keep the lava level locked even at 100% accuracy, and the end screen says why', async ({ page }) => {
+test('the balloon end screen always offers the lava level, and shows success with escapes counted', async ({ page }) => {
   await page.goto('/');
   await playBalloons(page);
   // 8 right, 0 wrong, 2 escaped = 80% success.
@@ -155,11 +128,18 @@ test('escaped balloons keep the lava level locked even at 100% accuracy, and the
     }
     scene.endRound();
   });
-  await page.waitForFunction(() => window.game.scene.getScene('game').overlay?.list.some((o) => o.text === 'Play again'));
+  const button = await page.waitForFunction(() => {
+    const scene = window.game.scene.getScene('game');
+    const btn = scene.overlay?.list.find((o) => o.text === 'Lava level');
+    if (!btn) return null;
+    const rect = window.game.canvas.getBoundingClientRect();
+    return { x: rect.left + (btn.x * rect.width) / 1280, y: rect.top + (btn.y * rect.height) / 720 };
+  }, null, { timeout: 30_000 });
   const texts = await page.evaluate(() => window.game.scene.getScene('game').overlay.list.map((o) => o.text).filter(Boolean));
-  expect(texts).not.toContain('Lava level');
   expect(texts.some((t) => t.includes('Success: 80%'))).toBe(true);
-  expect(texts).toContain('80% success (2 escaped balloons count as misses), need 90% for the lava level');
+  const { x, y } = await button.jsonValue();
+  await page.mouse.click(x, y);
+  await page.waitForFunction(() => window.game.scene.getScene('lava')?.state === 'playing', null, { timeout: 30_000 });
 });
 
 test('Play again in the balloon game end screen starts a new round', async ({ page }) => {

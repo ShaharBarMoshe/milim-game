@@ -13,7 +13,8 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:5181',
     headless: true,
-    viewport: { width: 1280, height: 720 },
+    // Smaller than the game's 1280×720 (it scales to fit): less to draw, less memory.
+    viewport: { width: 800, height: 450 },
   },
   projects: [
     {

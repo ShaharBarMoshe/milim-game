@@ -16,6 +16,36 @@ export function lookupUrl(word) {
 export const SPEAK_TIMEOUT_MS = 6000;
 // A recording is a second or two; never hold the queue longer than this once it plays.
 const MAX_PLAY_MS = 4000;
+// Lookups are saved in the browser, so a word is asked about once, not on every visit. A word with no
+// recording is asked about again after NO_RECORDING_DAYS, since Wiktionary may have gained one by then.
+export const CACHE_KEY = 'balloon-archer-speech';
+const NO_RECORDING_DAYS = 30;
+const MAX_CACHED_WORDS = 1000;
+
+function defaultStorage() {
+  try {
+    return globalThis.localStorage;
+  } catch {
+    return undefined;
+  }
+}
+
+// A word the browser wouldn't play yet is tried again on the next click or key press, unless it's older than this.
+const RETRY_WITHIN_MS = 20000;
+
+// Calls `retry` once, inside the page's next click, tap or key press: browsers only let a page start sound
+// after the player has interacted with it (opening ?level=lava directly, for example, plays nothing).
+function onNextGesture(retry) {
+  const target = globalThis.window;
+  if (!target?.addEventListener) return;
+  const once = () => {
+    target.removeEventListener('pointerdown', once, true);
+    target.removeEventListener('keydown', once, true);
+    retry();
+  };
+  target.addEventListener('pointerdown', once, true);
+  target.addEventListener('keydown', once, true);
+}
 
 // The word to look up, or null when the text isn't plain English (Hebrew, digits, accents, …).
 export function speakable(text) {
@@ -56,8 +86,14 @@ export class Speaker {
     createAudio = (url) => new Audio(url),
     now = () => Date.now(),
     timeout = SPEAK_TIMEOUT_MS,
+    waitForGesture = onNextGesture,
+    storage = defaultStorage(),
   } = {}) {
+    this.storage = storage;
+    this.saved = null; // word -> { url: string | null, at }, read from storage on first use
     this.fetch = fetch;
+    this.waitForGesture = waitForGesture;
+    this.blocked = null; // { url, generation, at }: the last word the browser refused to start
     this.createAudio = createAudio;
     this.now = now;
     this.timeout = timeout;
@@ -81,6 +117,7 @@ export class Speaker {
   // Drop everything queued and silence the current word (leaving a scene).
   stop() {
     this.generation++;
+    this.blocked = null;
     this.playing?.pause();
     this.playing = null;
   }
@@ -94,12 +131,54 @@ export class Speaker {
 
   lookup(word, deadline) {
     if (!this.urls.has(word)) {
-      const request = this.request(word, deadline);
-      this.urls.set(word, request);
-      // Only "no such word" is remembered; a failed or slow request may work next time.
-      request.then((url) => url === undefined && this.urls.delete(word));
+      const saved = this.savedLookup(word);
+      if (saved !== undefined) {
+        this.urls.set(word, Promise.resolve(saved));
+      } else {
+        const request = this.request(word, deadline);
+        this.urls.set(word, request);
+        // A failed or slow request isn't remembered: it may work next time.
+        request.then((url) => (url === undefined ? this.urls.delete(word) : this.saveLookup(word, url)));
+      }
     }
     return this.urls.get(word).then((url) => url ?? null);
+  }
+
+  // ------------------------------------------------ the saved lookups
+
+  readSaved() {
+    if (this.saved) return this.saved;
+    this.saved = new Map();
+    try {
+      const data = JSON.parse(this.storage?.getItem(CACHE_KEY) ?? 'null');
+      for (const [word, entry] of Object.entries(data && typeof data === 'object' ? data : {})) {
+        if ((typeof entry?.url === 'string' || entry?.url === null) && Number.isFinite(entry?.at)) this.saved.set(word, entry);
+      }
+    } catch {
+      // unreadable: start afresh
+    }
+    return this.saved;
+  }
+
+  // The saved recording URL, null for "Wiktionary has none", undefined when it must be looked up.
+  savedLookup(word) {
+    const entry = this.readSaved().get(word);
+    if (!entry) return undefined;
+    if (entry.url === null && this.now() - entry.at > NO_RECORDING_DAYS * 86_400_000) return undefined;
+    return entry.url;
+  }
+
+  saveLookup(word, url) {
+    const saved = this.readSaved();
+    saved.delete(word);
+    saved.set(word, { url, at: this.now() });
+    // Keep the newest words when there are too many.
+    while (saved.size > MAX_CACHED_WORDS) saved.delete(saved.keys().next().value);
+    try {
+      this.storage?.setItem(CACHE_KEY, JSON.stringify(Object.fromEntries(saved)));
+    } catch {
+      // storage full or blocked: the word is still remembered until the page closes
+    }
   }
 
   // The recording URL, null when Wiktionary has none, undefined when the request failed.
@@ -149,9 +228,30 @@ export class Speaker {
             clearTimeout(timer);
             timer = setTimeout(() => done(true), MAX_PLAY_MS);
           })
-          .catch(() => done(false));
+          .catch((error) => {
+            if (error?.name === 'NotAllowedError') this.retryOnGesture(url, generation);
+            done(false);
+          });
       } catch {
         done(false);
+      }
+    });
+  }
+
+  // Play the refused word as soon as the player clicks or types (only the latest one, while still current).
+  retryOnGesture(url, generation) {
+    this.blocked = { url, generation, at: this.now() };
+    if (this.listening) return;
+    this.listening = true;
+    this.waitForGesture(() => {
+      this.listening = false;
+      const word = this.blocked;
+      this.blocked = null;
+      if (!word || word.generation !== this.generation || this.now() - word.at > RETRY_WITHIN_MS) return;
+      try {
+        Promise.resolve(this.createAudio(word.url).play()).catch(() => {});
+      } catch {
+        // still refused: give up on this word
       }
     });
   }

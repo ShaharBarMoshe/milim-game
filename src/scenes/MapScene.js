@@ -5,8 +5,7 @@ import { ROBOT_FRAMES } from './PreloadScene.js';
 import { showWordListForm, hideWordListForm } from '../ui/wordListForm.js';
 import { DIRECTIONS } from '../quiz.js';
 import { SAMPLE_PAIRS } from '../vocab.js';
-import { spellingWord, UNLOCK_SUCCESS } from '../spelling.js';
-import { isLavaOpen } from '../progress.js';
+import { spellingTarget } from '../spelling.js';
 
 const W = 1280;
 const H = 720;
@@ -28,7 +27,7 @@ const SPOTS = {
     x: 975,
     y: 420,
     name: 'Lava Crossing',
-    about: 'Spell the English word by jumping\nfrom rock to rock over the lava.',
+    about: 'Spell the word by jumping\nfrom rock to rock over the lava.',
     color: 0xf97316,
   },
 };
@@ -87,36 +86,12 @@ export default class MapScene extends Phaser.Scene {
     this.state = 'map';
     const { pairs, listName } = currentWords(this.registry);
     this.listText.setText(`Words: ${listName}`);
+    // Always open, unless the list has no single word to spell (only phrases, or words over 12 letters).
     const lava = this.spots.lava;
-    if (!pairs.some((p) => spellingWord(p.en))) {
-      lava.locked = 'Needs English words:\nchoose an English–Hebrew list.';
-    } else if (!this.registry.get('lavaOpen') && !isLavaOpen()) {
-      lava.locked = `Locked: get ${UNLOCK_SUCCESS}% right in\nBalloon Meadow to open it.`;
-    } else {
-      lava.locked = null;
-    }
+    lava.locked = pairs.some((p) => spellingTarget(p)) ? null : 'No words to spell here:\nadd single words of 2–12 letters.';
     lava.lock.setVisible(Boolean(lava.locked));
     lava.icon.setAlpha(lava.locked ? 0.45 : 1);
     this.setSpotsVisible(true);
-    if (this.registry.get('lavaJustOpened') && !lava.locked) {
-      this.registry.set('lavaJustOpened', false);
-      this.announceLava();
-    }
-  }
-
-  // First visit after a winning round: the lock bursts off and the place glows for a moment.
-  announceLava() {
-    const lava = this.spots.lava;
-    const lock = this.add.text(lava.x + 26, lava.y - 30, '🔒', { fontSize: '26px' }).setOrigin(0.5).setDepth(16);
-    this.tweens.add({ targets: lock, y: lock.y - 80, alpha: 0, scale: 2, angle: 40, duration: 900, ease: 'Cubic.easeOut', onComplete: () => lock.destroy() });
-    const banner = this.add.text(lava.x, lava.y - 110, '🌋 Lava Crossing is open!', {
-      fontFamily: FONT, fontSize: '28px', fontStyle: 'bold', color: '#fff7ed', backgroundColor: '#9a3412ee', padding: { x: 16, y: 10 },
-    }).setOrigin(0.5).setDepth(25).setScale(0.6).setAlpha(0);
-    this.announcement = banner;
-    this.tweens.add({ targets: banner, scale: 1, alpha: 1, duration: 350, ease: 'Back.easeOut' });
-    this.tweens.add({ targets: banner, alpha: 0, delay: 3200, duration: 500, onComplete: () => banner.destroy() });
-    this.tweens.add({ targets: lava.glow.setVisible(true), alpha: { from: 0.8, to: 0.2 }, duration: 500, yoyo: true, repeat: 3,
-      onComplete: () => lava.glow.setAlpha(0.35).setVisible(this.hovered === 'lava') });
   }
 
   setSpotsVisible(visible) {
@@ -159,8 +134,9 @@ export default class MapScene extends Phaser.Scene {
       fontFamily: FONT, fontSize: '26px', fontStyle: 'bold', color: '#3b1f08', stroke: '#f5e6c0', strokeThickness: 5,
     }).setOrigin(0.5);
     c.add([glow, ring, disk, icon, lock, label]);
-    // The whole marker and its label are one target.
-    c.setSize(150, 170).setInteractive({ useHandCursor: true, hitArea: new Phaser.Geom.Rectangle(-75, -60, 150, 160), hitAreaCallback: Phaser.Geom.Rectangle.Contains });
+    // The whole marker and its label are one target: 150×200 centred on the marker, down to the label.
+    // (A container's hit area is measured from its top-left corner, so no offset hitArea here.)
+    c.setSize(150, 200).setInteractive({ useHandCursor: true });
     c.on('pointerover', () => this.hover(key));
     c.on('pointerout', () => this.hovered === key && this.hover(null));
     c.on('pointerup', () => this.play(key));

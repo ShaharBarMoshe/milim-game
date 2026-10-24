@@ -68,14 +68,18 @@ export default class LavaScene extends Phaser.Scene {
     });
     // Typing a letter jumps onto the rock with that letter, if the next column has one.
     this.input.keyboard.on('keydown', (event) => {
+      if (event.code === 'Space') {
+        this.sayWord();
+        return;
+      }
       if (this.state !== 'playing') return;
-      const letter = typedLetter(event);
+      const letter = typedLetter(event, this.run?.lang);
       const rock = letter && this.nextRocks().find((r) => r.letter === letter);
       if (rock) this.jumpTo(rock);
     });
 
     if (!this.words.length) {
-      this.endGame('No words to spell', 'Add single English words (2–8 letters) to your list.');
+      this.endGame('No words to spell', 'Add single words (2–12 letters) to your list.');
       return;
     }
     this.startWord();
@@ -201,7 +205,7 @@ export default class LavaScene extends Phaser.Scene {
 
     const pair = this.words[this.wordIndex];
     this.run = new SpellingRun(pair, { choices: CHOICES });
-    voice.say(pair.en);
+    voice.say(this.run.word); // English only: a Hebrew word stays silent
     this.start = this.makeRock(START_X, START_TOP, { pillar: true });
     this.rocks = [];
     this.run.columns.forEach((col, i) => {
@@ -456,7 +460,7 @@ export default class LavaScene extends Phaser.Scene {
       this.spelled++;
       this.robot.setFrame(ROBOT_FRAMES.frontLand);
       this.tweens.add({ targets: this.robot, y: this.robot.y - 30, duration: 180, yoyo: true, repeat: 1 });
-      this.showMessage(`${this.run.pair.he} = ${this.run.word}   +${points}`, '#a8ffb0');
+      this.showMessage(`${this.run.prompt} = ${this.run.word}   +${points}`, '#a8ffb0');
       this.updateHud();
     }, false);
     this.time.delayedCall(JUMP_MS + 1900, () => {
@@ -511,6 +515,21 @@ export default class LavaScene extends Phaser.Scene {
       fontFamily: 'Courier New, monospace', fontSize: '30px', fontStyle: 'bold', color: '#ffd166',
     }).setOrigin(0.5, 0));
     this.messageText = fixed(this.add.text(W / 2, 170, '', { ...style, fontSize: '30px' }).setOrigin(0.5).setAlpha(0));
+
+    // Hear the English word again (or press Space).
+    this.sayButton = fixed(this.add.text(W / 2 + 236, 60, '🔊', {
+      fontSize: '34px', backgroundColor: '#5a1e0ecc', padding: { x: 8, y: 6 },
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true }));
+    this.sayButton.on('pointerover', () => this.sayButton.setScale(1.12));
+    this.sayButton.on('pointerout', () => this.sayButton.setScale(1));
+    this.sayButton.on('pointerdown', () => this.sayWord());
+    fixed(this.add.text(W / 2 + 236, 102, 'Space', { fontFamily: FONT, fontSize: '14px', color: '#ffcf99' }).setOrigin(0.5));
+  }
+
+  sayWord() {
+    if (!this.run || this.state === 'over') return;
+    voice.say(this.run.word);
+    this.tweens.add({ targets: this.sayButton, scale: 1.25, duration: 120, yoyo: true });
   }
 
   updateHud() {
@@ -518,8 +537,10 @@ export default class LavaScene extends Phaser.Scene {
     this.scoreText.setText(`Score: ${this.score}`);
     this.wordText.setText(this.words.length ? `Word ${Math.min(this.wordIndex + 1, this.words.length)} / ${this.words.length}` : '');
     if (this.run) {
-      this.promptText.setText(this.run.pair.he);
-      this.progressText.setText([...this.run.progress()].join(' '));
+      const hebrew = this.run.lang === 'he';
+      this.promptLabel.setText(hebrew ? 'Spell the matching word in Hebrew' : 'Spell in English');
+      this.promptText.setText(this.run.prompt);
+      this.progressText.setRTL(hebrew).setText([...this.run.progress()].join(' '));
     }
   }
 

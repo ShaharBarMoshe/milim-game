@@ -20,16 +20,14 @@ npm run dev        # open the printed http://localhost URL
    - **Delete list** asks for a second click. Every list, ready-made ones included, can be edited unless locked.
    - Everything is saved in the browser. A list typed in the old text box is kept as "My words".
 2. **The map**: an old parchment map of the Word Realm with a place for each game. Hover a place to mark it and read
-   what it is; click it to play. **Balloon Meadow** is the balloon game. **Lava Crossing** (the lava level) stays
-   locked until you win a balloon round (see below); after that it's open for every list, and the map
-   announces it the first time back. A Hebrew–Hebrew list
-   can't open it, since it spells English words. **✎ Change words** goes back to the word lists.
+   what it is; click it to play. **Balloon Meadow** is the balloon game. **Lava Crossing** is the lava level, always open; only
+   a Hebrew–Hebrew list can't open it, since it spells English words. **✎ Change words** goes back to the word lists.
 3. **Questions**: the banner shows a word and a wave of balloons rises with candidate translations.
    - Click the right balloon: the arrow homes in and pops it. +10 points, plus 2 per answer in your current streak (up to +10).
    - Click a wrong balloon: the arrow flies past it, −5 points (never below 0), the streak resets and the right balloon flashes.
    - Clicking empty sky does nothing. If the answer floats away, the answer is shown and the next question comes up.
 4. After 60 seconds you get your score, correct/wrong/missed counts, accuracy and the words to practise,
-   with **Play again**, **Lava level** (once it's unlocked) and **Map**.
+   with **Play again**, **Lava level** and **Map**.
 
 - **Mouse**: the hunter turns and draws the bow toward the cursor.
 - The hunter gallops back and forth on his own during a round and halts to shoot. **A / D** or **← / →** turn the horse around.
@@ -37,10 +35,11 @@ npm run dev        # open the printed http://localhost URL
 ## Spoken words
 
 The English word of each question is said out loud, using the pronunciation recordings on
-[Wiktionary](https://en.wiktionary.org) (free, no key needed; one API request per word, cached):
+[Wiktionary](https://en.wiktionary.org) (free, no key needed). Each word is looked up once and the answer is saved in
+the browser, so only new words call the API (a word with no recording is checked again after 30 days):
 
-- Balloons: when the question shows the English word, and again when the question ends (popped or escaped).
-  When the question shows the Hebrew word, the English word is the answer, so it is only said at the end.
+- Balloons: when the question starts, whether it shows the English word or the Hebrew one, and again when the
+  question ends (popped or escaped).
 - Lava: when a word starts, and again when it is crossed (or lost).
 - Words with anything other than English letters are skipped. Only words and phrases that Wiktionary has an
   English recording of are said (e.g. "dog", "ice cream"); others stay silent. A failed request, or one with no answer within 6 seconds, is
@@ -48,9 +47,11 @@ The English word of each question is said out loud, using the pronunciation reco
 
 ## Lava level (spelling)
 
-Get **90% or more** of a balloon round right (escaped waves count as misses, at least 5 correct) and the end screen offers the **Lava level**, which also opens Lava Crossing on the map. A robot crosses a lava lake on floating rocks: the banner shows the Hebrew word (e.g. כלב) and each column of rocks holds one letter of the English word plus two wrong letters. Jump d → o → g to reach the flag.
+Open it from **Lava Crossing** on the map or the balloon end screen's **Lava level** button. A robot crosses a lava lake on floating rocks: the banner shows the Hebrew word (e.g. כלב) and each column of rocks holds one letter of the English word plus two wrong letters. Jump d → o → g to reach the flag.
 
 - Click a rock in the next column, or just type the letter.
+- The English word is said when it starts; **🔊** in the banner (or **Space**) says it again. A word the browser
+  wouldn't play before your first click or key press plays then.
 - Every jump is roped to a peg on the rock it starts from. On a right letter the rope disappears once the robot lands.
 - A wrong letter sinks its rock: the robot drops on the rope until it dangles just above the lava, loses one of 3 lives,
   and climbs back to the rock it jumped from. On the last life the rope snaps and the robot falls into the lava.
@@ -61,13 +62,12 @@ Get **90% or more** of a balloon round right (escaped waves count as misses, at 
 ## Code
 
 - `src/scenes/MapScene.js`: the word list screen and the adventure map (drawn in Phaser, styled after `fantasy_rpg_adventure_map.html`).
-- `src/progress.js`: whether the lava level is open on the map (localStorage, never throws).
 - `src/vocab.js`: sample pairs, and the old one-text-box word list format (read once to move it into a list).
 - `src/wordLists.js`: ready-made lists, `checkPair` validation and `WordLibrary` (create, rename, lock, delete lists; add, edit, remove pairs; saved in localStorage, never throws).
 - `src/quiz.js`: questions, options, scoring and stats (`Quiz`, `shuffle`, `DIRECTIONS`); pass `random` for determinism.
 - `src/ballistics.js`: `steer` (homing step) and `missPoint` (where a deliberate miss passes).
 - `src/ui/wordListForm.js`: the HTML word-list overlay (HTML so Hebrew typing and RTL work natively).
-- `src/spelling.js`: lava-level rules (`lavaUnlocked`, `spellingWord`, `SpellingRun`).
+- `src/spelling.js`: lava-level rules (`spellingWord`, `SpellingRun`, `successRate`).
 - `src/speech.js`: spoken words (`Speaker`, `voice`): Wiktionary lookup, 6 s deadline, one word at a time.
 - `src/scenes/LavaScene.js`: the lava level. In dev, `getScene('lava')` exposes `state`, `run`, `rocks`, `lives`, `score`.
 - `src/scenes/GameScene.js`: the game. In dev, `window.game.scene.getScene('game')` exposes `state`, `quiz` and `balloons`.

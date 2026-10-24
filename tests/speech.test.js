@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { Speaker, speakable, pickAudio, lookupUrl, SPEAK_TIMEOUT_MS } from '../src/speech.js';
+import { Speaker, speakable, pickAudio, lookupUrl, SPEAK_TIMEOUT_MS, CACHE_KEY } from '../src/speech.js';
+import { memoryStorage, throwingStorage } from './helpers.js';
 
 // A lookupUrl() response (the files on a Wiktionary page), trimmed to what the game reads.
 const FILE_URL = 'https://upload.wikimedia.org/x/';
@@ -72,7 +73,7 @@ describe('Speaker', () => {
   });
   afterEach(() => vi.useRealTimers());
 
-  const speaker = (fetch, audio = {}) => new Speaker({ fetch, createAudio: fakeAudio(played, audio) });
+  const speaker = (fetch, audio = {}, storage = memoryStorage()) => new Speaker({ fetch, createAudio: fakeAudio(played, audio), storage });
 
   it('looks the word up and plays its recording', async () => {
     const fetch = vi.fn(async () => json(DOG));
@@ -184,6 +185,47 @@ describe('Speaker', () => {
     expect(await next).toBe(true);
   });
 
+  it('plays a word the browser refused before any click as soon as the player clicks or types', async () => {
+    let gesture = null;
+    let allowed = false;
+    const createAudio = (url) => ({
+      addEventListener: () => {},
+      pause: () => {},
+      play: () => {
+        if (!allowed) return Promise.reject(Object.assign(new Error('needs a gesture'), { name: 'NotAllowedError' }));
+        played.push(url);
+        return Promise.resolve();
+      },
+    });
+    const s = new Speaker({ fetch: async () => json(DOG), createAudio, waitForGesture: (retry) => (gesture = retry), storage: memoryStorage() });
+    const heard = s.say('dog');
+    await vi.runAllTimersAsync();
+    expect(await heard).toBe(false);
+    expect(played).toEqual([]);
+    allowed = true; // the player clicks
+    gesture();
+    await vi.runAllTimersAsync();
+    expect(played).toEqual([DOG_URL]);
+  });
+
+  it('does not replay a refused word after the scene moved on', async () => {
+    let gesture = null;
+    const createAudio = (url) => ({
+      addEventListener: () => {},
+      pause: () => {},
+      play: () => (gesture ? (played.push(url), Promise.resolve()) : Promise.reject(Object.assign(new Error('no'), { name: 'NotAllowedError' }))),
+    });
+    let retry = null;
+    const s = new Speaker({ fetch: async () => json(DOG), createAudio, waitForGesture: (fn) => (retry = fn), storage: memoryStorage() });
+    s.say('dog');
+    await vi.runAllTimersAsync();
+    s.stop();
+    gesture = true;
+    retry();
+    await vi.runAllTimersAsync();
+    expect(played).toEqual([]);
+  });
+
   it('stop() silences the current word and drops the queued ones', async () => {
     const s = speaker(async () => json(DOG), { length: 1000 });
     s.say('dog');
@@ -193,5 +235,77 @@ describe('Speaker', () => {
     await vi.runAllTimersAsync();
     expect(await queued).toBe(false);
     expect(played).toHaveLength(1);
+  });
+});
+
+describe('saved lookups', () => {
+  let played;
+  beforeEach(() => {
+    vi.useFakeTimers();
+    played = [];
+  });
+  afterEach(() => vi.useRealTimers());
+
+  const DAY = 86_400_000;
+  const make = (fetch, storage, now = () => Date.now()) => new Speaker({ fetch, createAudio: fakeAudio(played), storage, now });
+  const sayAll = async (s, ...words) => {
+    const heard = words.map((w) => s.say(w));
+    await vi.runAllTimersAsync();
+    return Promise.all(heard);
+  };
+
+  it('a word is looked up once, even after the page is reloaded', async () => {
+    const storage = memoryStorage();
+    const fetch = vi.fn(async () => json(DOG));
+    expect(await sayAll(make(fetch, storage), 'dog', 'dog')).toEqual([true, true]);
+    expect(await sayAll(make(fetch, storage), 'Dog')).toEqual([true]); // a new page, same browser
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(played).toEqual([DOG_URL, DOG_URL, DOG_URL]);
+    expect(JSON.parse(storage.getItem(CACHE_KEY)).dog.url).toBe(DOG_URL);
+  });
+
+  it('only new words call the API', async () => {
+    const storage = memoryStorage();
+    const fetch = vi.fn(async (url) => json(media(`File:en-us-${new URL(url).searchParams.get('titles')}.ogg`)));
+    await sayAll(make(fetch, storage), 'dog', 'cat');
+    await sayAll(make(fetch, storage), 'dog', 'cat', 'sun');
+    expect(fetch.mock.calls.map(([url]) => new URL(url).searchParams.get('titles'))).toEqual(['dog', 'cat', 'sun']);
+  });
+
+  it('remembers a word with no recording, and asks again after 30 days', async () => {
+    const storage = memoryStorage();
+    let now = Date.now();
+    const fetch = vi.fn(async () => json(media('File:Dog.jpg')));
+    expect(await sayAll(make(fetch, storage, () => now), 'zzz')).toEqual([false]);
+    expect(await sayAll(make(fetch, storage, () => now), 'zzz')).toEqual([false]);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    now += 31 * DAY;
+    await sayAll(make(fetch, storage, () => now), 'zzz');
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not save a failed request', async () => {
+    const storage = memoryStorage();
+    const fetch = vi.fn(async () => json({}, 500));
+    await sayAll(make(fetch, storage), 'dog');
+    expect(storage.getItem(CACHE_KEY)).toBeNull();
+    fetch.mockImplementation(async () => json(DOG));
+    expect(await sayAll(make(fetch, storage), 'dog')).toEqual([true]);
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['not json', '[1,2]', '{"dog": {"url": 5}}', '{"dog": "x"}'])('ignores unreadable saved data %j', async (raw) => {
+    const fetch = vi.fn(async () => json(DOG));
+    expect(await sayAll(make(fetch, memoryStorage({ [CACHE_KEY]: raw })), 'dog')).toEqual([true]);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('still speaks when storage is blocked or missing', async () => {
+    for (const storage of [throwingStorage(), undefined, null]) {
+      const fetch = vi.fn(async () => json(DOG));
+      const s = make(fetch, storage);
+      expect(await sayAll(s, 'dog', 'dog')).toEqual([true, true]);
+      expect(fetch).toHaveBeenCalledTimes(1); // remembered for the page at least
+    }
   });
 });

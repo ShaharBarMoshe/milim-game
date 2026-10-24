@@ -1,41 +1,27 @@
 import { describe, it, expect } from 'vitest';
 import {
-  UNLOCK_SUCCESS,
-  UNLOCK_MIN_CORRECT,
   successRate,
-  lavaUnlocked,
   spellingWord,
   pickSpellingPairs,
   letterChoices,
   SpellingRun,
   typedLetter,
+  spellingTarget,
 } from '../src/spelling.js';
 import { mulberry32 } from './helpers.js';
 
 const stats = (correct, wrong = 0, missed = 0) => ({ correct, wrong, missed });
 
-describe('unlocking the lava level', () => {
-  it('needs 90% success', () => {
-    expect(UNLOCK_SUCCESS).toBe(90);
-    expect(lavaUnlocked(stats(9, 1))).toBe(true);
-    expect(lavaUnlocked(stats(8, 2))).toBe(false);
-    expect(lavaUnlocked(stats(10))).toBe(true);
-  });
-
+describe('successRate', () => {
   it('counts escaped waves as failures', () => {
+    expect(successRate(stats(9, 1))).toBe(90);
     expect(successRate(stats(9, 0, 1))).toBe(90);
     expect(successRate(stats(8, 0, 2))).toBe(80);
-    expect(lavaUnlocked(stats(8, 0, 2))).toBe(false);
-  });
-
-  it('needs a minimum number of correct answers', () => {
-    expect(lavaUnlocked(stats(UNLOCK_MIN_CORRECT - 1))).toBe(false);
-    expect(lavaUnlocked(stats(UNLOCK_MIN_CORRECT))).toBe(true);
+    expect(successRate(stats(10))).toBe(100);
   });
 
   it('is 0% before any question', () => {
     expect(successRate(stats(0))).toBe(0);
-    expect(lavaUnlocked(stats(0))).toBe(false);
   });
 });
 
@@ -44,13 +30,21 @@ describe('spellingWord', () => {
     expect(spellingWord('  Dog ')).toBe('dog');
   });
 
-  it.each(['good morning', 'x-ray', 'café', 'r2d2', '', 'a', 'elephants'])('rejects %j', (en) => {
+  it.each(['good morning', 'x-ray', 'café', 'r2d2', '', 'a', 'encyclopedias'])('rejects %j', (en) => {
     expect(spellingWord(en)).toBeNull();
   });
 
-  it('accepts 2 to 8 letters', () => {
+  it('accepts 2 to 12 letters', () => {
     expect(spellingWord('go')).toBe('go');
-    expect(spellingWord('elephant')).toBe('elephant');
+    expect(spellingWord('elephants')).toBe('elephants');
+    expect(spellingWord('thanksgiving')).toBe('thanksgiving');
+  });
+
+  it('spells Hebrew words without vowel marks', () => {
+    expect(spellingWord(' קטן ', 'he')).toBe('קטן');
+    expect(spellingWord('dog', 'he')).toBeNull();
+    expect(spellingWord('בוקר טוב', 'he')).toBeNull();
+    expect(spellingWord('שָׁלוֹם', 'he')).toBeNull();
   });
 });
 
@@ -159,5 +153,42 @@ describe('typedLetter', () => {
     {},
   ])('ignores %j', (event) => {
     expect(typedLetter(event)).toBeNull();
+  });
+});
+
+describe('Hebrew–Hebrew pairs', () => {
+  it('spell the second word for the first; English pairs spell the English word', () => {
+    expect(spellingTarget({ en: 'גדול', he: 'קטן' })).toEqual({ word: 'קטן', lang: 'he', prompt: 'גדול' });
+    expect(spellingTarget({ en: 'Dog', he: 'כלב' })).toEqual({ word: 'dog', lang: 'en', prompt: 'כלב' });
+    // An English phrase is not turned into Hebrew spelling.
+    expect(spellingTarget({ en: 'good morning', he: 'בוקר' })).toBeNull();
+    expect(spellingTarget({ en: 'גדול', he: 'גדול מאוד' })).toBeNull();
+  });
+
+  it('pick spellable pairs from a Hebrew–Hebrew list', () => {
+    const list = [{ en: 'חם', he: 'קר' }, { en: 'גדול', he: 'קטן' }, { en: 'יום', he: 'לילה ארוך' }];
+    expect(pickSpellingPairs(list, 5, mulberry32(1)).map((p) => p.he).sort()).toEqual(['קטן', 'קר'].sort());
+  });
+
+  it('a run puts Hebrew letters on the rocks', () => {
+    const r = new SpellingRun({ en: 'גדול', he: 'קטן' }, { choices: 3, random: mulberry32(2) });
+    expect(r.lang).toBe('he');
+    expect(r.prompt).toBe('גדול');
+    expect(r.columns.map((c) => c.answer)).toEqual(['ק', 'ט', 'ן']);
+    for (const c of r.columns) {
+      expect(c.letters).toHaveLength(3);
+      c.letters.forEach((l) => expect(l).toMatch(/^[א-ת]$/));
+    }
+    ['ק', 'ט', 'ן'].forEach((l) => r.jump(l));
+    expect(r.done).toBe(true);
+  });
+
+  it('typing reads Hebrew letters from either keyboard layout', () => {
+    expect(typedLetter({ key: 'ק', code: 'KeyE' }, 'he')).toBe('ק');
+    expect(typedLetter({ key: 'e', code: 'KeyE' }, 'he')).toBe('ק'); // English layout on
+    expect(typedLetter({ key: 'i', code: 'KeyI' }, 'he')).toBe('ן');
+    expect(typedLetter({ key: ',', code: 'Comma' }, 'he')).toBe('ת');
+    expect(typedLetter({ key: '5', code: 'Digit5' }, 'he')).toBeNull();
+    expect(typedLetter({ key: 'ג', code: 'KeyD' })).toBe('d'); // English words still read the key's letter
   });
 });
