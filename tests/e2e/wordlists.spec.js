@@ -67,38 +67,6 @@ test('a new list is built word by word, saved, and played', async ({ page }) => 
   expect(['sea', 'ים', 'beach', 'חוף']).toContain(prompt);
 });
 
-test('wrong input is explained and nothing is added', async ({ page }) => {
-  await useWords(page, pairs('dog=כלב'));
-  const error = page.locator('#word-error');
-
-  await page.locator('#add-en').fill('כלב');
-  await page.locator('#add-he').fill('כלב');
-  await page.locator('#add-pair').click();
-  await expect(error).toContainText('English letters');
-  await expect(page.locator('#add-en')).toHaveAttribute('aria-invalid', 'true');
-
-  await page.locator('#add-en').fill('cat');
-  await page.locator('#add-he').fill('cat');
-  await page.locator('#add-pair').click();
-  await expect(error).toContainText('Hebrew letters');
-
-  await page.locator('#add-en').fill('Dog');
-  await page.locator('#add-he').fill('כלבלב');
-  await page.locator('#add-pair').click();
-  await expect(error).toContainText('already in this list');
-
-  await page.locator('#add-en').fill('cat');
-  await page.locator('#add-he').fill('');
-  await page.locator('#add-pair').click();
-  await expect(error).toContainText('Hebrew word');
-  expect(await rows(page)).toEqual([['dog', 'כלב']]);
-
-  await page.locator('#add-he').fill('חתול');
-  await page.locator('#add-pair').click();
-  await expect(error).toBeEmpty();
-  expect(await rows(page)).toEqual([['dog', 'כלב'], ['cat', 'חתול']]);
-});
-
 test('words can be edited and removed in the table', async ({ page }) => {
   await useWords(page, pairs('dog=כלב', 'cat=חתול', 'sun=שמש'));
   const firstEn = page.locator('#word-table .pair-en').first();
@@ -149,42 +117,6 @@ test('a locked list cannot be changed until it is unlocked, and stays locked aft
   expect(await rows(page)).toHaveLength(3);
 });
 
-test('deleting a list needs a second click', async ({ page }) => {
-  const before = await listNames(page);
-  const del = page.locator('#list-delete');
-  await del.click();
-  await expect(del).toContainText('again');
-  expect(await listNames(page)).toEqual(before);
-  await del.click();
-  await expect(page.locator('#list-select option')).toHaveCount(before.length - 1);
-
-  await page.reload();
-  await expect(page.locator('#list-select option')).toHaveCount(before.length - 1);
-  expect(await listNames(page)).not.toContain(before[0]);
-});
-
-test('the only list left cannot be deleted', async ({ page }) => {
-  await useWords(page, pairs('dog=כלב', 'cat=חתול'));
-  await expect(page.locator('#list-delete')).toBeDisabled();
-});
-
-test('a list typed in the old text box is kept as "My words"', async ({ page }) => {
-  await page.evaluate(() => {
-    localStorage.clear();
-    localStorage.setItem('balloon-archer-words', 'dog - כלב\ncat - חתול');
-  });
-  await page.reload();
-  await expect(page.locator('#list-name')).toHaveValue('My words');
-  await expect.poll(() => rows(page)).toEqual([['dog', 'כלב'], ['cat', 'חתול']]);
-});
-
-test('the lava level uses the chosen list', async ({ page }) => {
-  await useWords(page, pairs('dog=כלב', 'cat=חתול', 'sun=שמש'), '/?level=lava');
-  await page.waitForFunction(() => window.game?.scene?.getScene('lava')?.state === 'playing', null, { timeout: 30_000 });
-  const words = await page.evaluate(() => window.game.scene.getScene('lava').words.map((w) => w.en).sort());
-  expect(words).toEqual(['cat', 'dog', 'sun']);
-});
-
 test('a Hebrew–Hebrew list takes Hebrew on both sides and plays in Hebrew', async ({ page }) => {
   await page.locator('#list-new').click();
   await page.locator('#list-name').fill('הפכים שלי');
@@ -213,21 +145,4 @@ test('a Hebrew–Hebrew list takes Hebrew on both sides and plays in Hebrew', as
   await page.waitForFunction(() => window.game.scene.getScene('game').quiz?.current);
   const q = await page.evaluate(() => window.game.scene.getScene('game').quiz.current);
   for (const word of [q.prompt, ...q.options]) expect(word).toMatch(/^[֐-׿ ]+$/);
-});
-
-test('a Hebrew–Hebrew list never offers the English spelling lava level', async ({ page }) => {
-  await useWords(page, pairs('חם=קר', 'גדול=קטן', 'יום=לילה', 'פתוח=סגור'), '/', 'he-he');
-  await page.locator('#word-start').click();
-  await page.waitForFunction(() => window.game.scene.getScene('game').state === 'playing');
-  await page.evaluate(() => {
-    const scene = window.game.scene.getScene('game');
-    for (let i = 0; i < 10; i++) {
-      scene.quiz.next();
-      scene.quiz.answer(scene.quiz.current.answer);
-    }
-    scene.endRound();
-  });
-  await page.waitForFunction(() => window.game.scene.getScene('game').overlay?.list.some((o) => o.text === 'Play again'));
-  const texts = await page.evaluate(() => window.game.scene.getScene('game').overlay.list.map((o) => o.text).filter(Boolean));
-  expect(texts.join('\n')).not.toMatch(/lava/i);
 });

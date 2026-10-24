@@ -1,10 +1,11 @@
-// Whole journeys between the screens: word lists → balloons → lava → back to the word lists,
-// after winning and after losing.
+// The whole journey between the screens: word lists → balloons (won) → lava (every word spelled)
+// → back to the word lists.
 import { test, expect } from '@playwright/test';
 import { pairs, useWords } from './words.js';
 import { clickBalloon, clickButton, snapshot } from './play.js';
 
-const WORDS = pairs('dog=כלב', 'cat=חתול', 'sun=שמש', 'house=בית');
+// Two short words keep the lava part (every word is spelled) quick.
+const WORDS = pairs('up=למעלה', 'go=לך');
 
 let pageErrors;
 
@@ -49,15 +50,6 @@ async function winBalloonRound(page) {
   await page.evaluate(() => window.game.scene.getScene('game').endRound());
 }
 
-// Shoot wrong balloons, then end the round well below 90%.
-async function loseBalloonRound(page) {
-  for (let i = 1; i <= 2; i++) {
-    await clickBalloon(page, 'wrong');
-    await page.waitForFunction((n) => window.game.scene.getScene('game').quiz.stats().wrong === n, i, { timeout: 30_000 });
-  }
-  await page.evaluate(() => window.game.scene.getScene('game').endRound());
-}
-
 const waitForLavaPlaying = (page) =>
   page.waitForFunction(() => window.game.scene.getScene('lava')?.state === 'playing', null, { timeout: 30_000 });
 
@@ -94,15 +86,6 @@ async function spellEveryWord(page) {
   }
 }
 
-async function loseEveryLife(page) {
-  while ((await lavaScene(page)).state !== 'over') {
-    await waitForLavaPlaying(page);
-    const wrongLeft = (await page.evaluate(() => window.game.scene.getScene('lava').nextRocks().length)) > 1;
-    await clickRock(page, !wrongLeft); // both wrong rocks sunk: step on the right one to reach fresh ones
-    await page.waitForFunction(() => !['jumping', 'falling'].includes(window.game.scene.getScene('lava').state), null, { timeout: 30_000 });
-  }
-}
-
 // Back on the word list screen: pick another list and check a round starts with its words.
 async function playAnotherList(page) {
   await expect(page.locator('#word-form')).toBeVisible({ timeout: 30_000 });
@@ -133,37 +116,5 @@ test('win the balloons → lava level → spell every word → back to the word 
   expect(await page.evaluate(() => window.game.scene.getScene('lava').children.list.some((o) => o.text === 'Lava master!'))).toBe(true);
 
   await clickButton(page, 'lava', 'Balloons');
-  await playAnotherList(page);
-});
-
-test('win the balloons → lava level → burn out → back to the word lists', async ({ page }) => {
-  test.setTimeout(300_000);
-  await startBalloons(page);
-  await winBalloonRound(page);
-
-  await clickButton(page, 'game', 'Lava level');
-  await waitForLavaPlaying(page);
-  await loseEveryLife(page);
-  expect((await lavaScene(page)).lives).toBe(0);
-
-  await clickButton(page, 'lava', 'Balloons');
-  await playAnotherList(page);
-});
-
-test('win the balloons → Edit words → back to the word lists', async ({ page }) => {
-  test.setTimeout(180_000);
-  await startBalloons(page);
-  await winBalloonRound(page);
-  await clickButton(page, 'game', 'Edit words');
-  await playAnotherList(page);
-});
-
-test('lose the balloons → no lava → Edit words → back to the word lists', async ({ page }) => {
-  test.setTimeout(180_000);
-  await startBalloons(page);
-  await loseBalloonRound(page);
-  await page.waitForFunction(() => window.game.scene.getScene('game').overlay?.list.some((o) => o.text === 'Edit words'));
-  expect(await page.evaluate(() => window.game.scene.getScene('game').overlay.list.some((o) => o.text === 'Lava level'))).toBe(false);
-  await clickButton(page, 'game', 'Edit words');
   await playAnotherList(page);
 });

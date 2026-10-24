@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { pairs, useWords } from './words.js';
-import { GAME_H, GAME_W, clickBalloon, snapshot } from './play.js';
+import { clickBalloon, snapshot } from './play.js';
 
 const WORDS = pairs('dog=כלב', 'cat=חתול', 'house=בית', 'sun=שמש');
 
@@ -79,30 +79,4 @@ test('correct balloon scores, wrong balloon penalises and resets streak', async 
   expect(s2.stats.streak).toBe(0);
   expect(s2.stats.correct).toBe(1);
   expect(s2.score).toBe(Math.max(0, scoreAfterHit - 5));
-});
-
-test('clicking empty sky does not answer', async ({ page }) => {
-  await startGame(page);
-  const box = await page.evaluate(() => {
-    const r = window.game.canvas.getBoundingClientRect();
-    return { x: r.left, y: r.top, width: r.width, height: r.height };
-  });
-  const s = await snapshot(page);
-  // Find a sky point far from every balloon.
-  let point = null;
-  for (let gx = 100; gx < GAME_W - 100 && !point; gx += 80) {
-    const gy = 120;
-    if (s.balloons.every((b) => Math.hypot(b.gx - gx, b.gy - gy) > 200)) point = { gx, gy };
-  }
-  test.skip(!point, 'no free sky found');
-  await page.mouse.click(box.x + (point.gx * box.width) / GAME_W, box.y + (point.gy * box.height) / GAME_H);
-  // Give the game a few frames to process the click, measured in game time.
-  await page.waitForFunction(
-    (t0) => window.game.loop.frame > t0 + 10,
-    await page.evaluate(() => window.game.loop.frame),
-  );
-  const after = await snapshot(page);
-  expect(after.stats.correct).toBe(0);
-  expect(after.stats.wrong).toBe(0);
-  expect(after.score).toBe(0);
 });

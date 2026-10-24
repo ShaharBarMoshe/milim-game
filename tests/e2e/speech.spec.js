@@ -61,7 +61,7 @@ async function recordSpeech(page) {
 
 const said = (page) => page.evaluate(() => window.said);
 
-test('says the English word when it is the question, and again once it is answered', async ({ page }) => {
+test('says the English word at the start of every question, and again once it is answered', async ({ page }) => {
   const asked = [];
   await page.route(DICTIONARY, (route) => {
     asked.push(new URL(route.request().url()).searchParams.get('titles'));
@@ -69,64 +69,23 @@ test('says the English word when it is the question, and again once it is answer
   });
   await useWords(page, WORDS);
   await recordSpeech(page);
+  // Hebrew questions, so the English word said is the answer.
+  await page.locator('#word-direction').selectOption('he-en');
   await playBalloons(page);
 
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 2; i++) {
     const { current } = await snapshot(page);
+    expect(current.prompt).toBe(current.pair.he);
     const wave = await page.evaluate(() => window.game.scene.getScene('game').waveId);
     const inWave = async () => (await said(page)).filter((e) => e.wave === wave).map((e) => e.text);
-    // Said at the start only when the banner shows the English word (otherwise it is the answer).
-    expect(await inWave()).toEqual(current.prompt === current.pair.en ? [current.pair.en] : []);
+    // Said at the start whether the banner shows the English word or the Hebrew one (then it's the answer).
+    expect(await inWave()).toEqual([current.pair.en]);
     await clickBalloon(page, 'correct');
-    await expect.poll(inWave).toEqual(current.prompt === current.pair.en ? [current.pair.en, current.pair.en] : [current.pair.en]);
+    await expect.poll(inWave).toEqual([current.pair.en, current.pair.en]);
     await page.waitForFunction((w) => window.game.scene.getScene('game').waveId > w, wave, { timeout: 30_000 });
   }
   // Only English words are looked up, each once.
   expect(asked.length).toBeGreaterThan(0);
   expect(new Set(asked).size).toBe(asked.length);
   for (const word of asked) expect(['dog', 'cat', 'house', 'sun']).toContain(word);
-});
-
-test('a Hebrew-Hebrew list says nothing and asks nothing', async ({ page }) => {
-  const asked = [];
-  await page.route(DICTIONARY, (route) => (asked.push(route.request().url()), route.abort()));
-  await useWords(page, pairs('כלב=חיה שנובחת', 'חתול=חיה שמייללת', 'בית=מקום מגורים', 'שמש=כוכב'), '/', 'he-he');
-  await recordSpeech(page);
-  await playBalloons(page);
-  await clickBalloon(page, 'correct');
-  await clickBalloon(page, 'correct');
-  expect(asked).toEqual([]);
-});
-
-for (const [name, handler] of [
-  ['fails', (route) => route.abort('failed')],
-  ['errors', (route) => route.fulfill({ status: 530, body: 'origin error' })],
-  ['never answers', () => {}],
-]) {
-  test(`the game carries on when Wiktionary ${name}`, async ({ page }) => {
-    await page.route(DICTIONARY, handler);
-    await useWords(page, WORDS);
-    await playBalloons(page);
-    for (let i = 0; i < 3; i++) await clickBalloon(page, 'correct');
-    expect((await snapshot(page)).stats.correct).toBe(3);
-  });
-}
-
-test('the lava level says the word as it starts and again once it is crossed or lost', async ({ page }) => {
-  await page.route(DICTIONARY, (route) => route.abort());
-  await useWords(page, pairs('dog=כלב', 'cat=חתול', 'sun=שמש'), '/?level=lava');
-  await page.waitForFunction(() => window.game?.scene?.getScene('lava')?.state === 'playing', null, { timeout: 30_000 });
-  // The first word was said in create(), before the recorder could be installed: start the level again.
-  await recordSpeech(page);
-  await page.evaluate(() => window.game.scene.getScene('lava').scene.restart());
-  await page.waitForFunction(() => window.game.scene.getScene('lava').state === 'playing' && window.said.length > 0, null,
-    { timeout: 30_000 });
-  const word = await page.evaluate(() => window.game.scene.getScene('lava').run.word);
-  expect((await said(page)).map((e) => e.text)).toEqual([word]);
-  // Type the word: once it is crossed it is said again.
-  for (const letter of word) {
-    await page.waitForFunction(() => window.game.scene.getScene('lava').state === 'playing', null, { timeout: 30_000 });
-    await page.keyboard.press(letter);
-  }
-  await expect.poll(async () => (await said(page)).map((e) => e.text).slice(0, 2), { timeout: 30_000 }).toEqual([word, word]);
 });

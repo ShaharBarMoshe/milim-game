@@ -16,7 +16,7 @@ npm run build                       # production build
 npm run sprites                     # regenerate public/assets/ from the source JPEGs (Python, Pillow + NumPy)
 ```
 
-- E2e uses the system Chrome at `/usr/bin/google-chrome`, one worker, and `--strictPort 5181` with `reuseExistingServer: false`, so two e2e runs at once fail with "port already used". The full e2e suite (50 tests) takes 15–30 minutes and is capped at 30 by `globalTimeout`; each test has its own `timeout` (60 s, raised per test with `test.setTimeout`).
+- E2e uses the system Chrome at `/usr/bin/google-chrome`, one worker, and `--strictPort 5181` with `reuseExistingServer: false`, so two e2e runs at once fail with "port already used". The e2e suite is kept small (about 20 core functional tests; rules and edge cases belong in the unit tests) and must finish in under 10 minutes, which `globalTimeout` enforces; each test has its own `timeout` (60 s, raised per test with `test.setTimeout`).
 - There is no linter configured.
 
 ## Architecture

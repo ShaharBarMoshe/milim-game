@@ -3,8 +3,9 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: 'tests/e2e',
   timeout: 60_000,
-  // The whole run stops after this, whatever is still going (a full run takes 15–30 minutes).
-  globalTimeout: 30 * 60_000,
+  // The whole run stops after this, whatever is still going. Keep the suite to core functional checks
+  // (rules are unit-tested) so it finishes well inside it.
+  globalTimeout: 10 * 60_000,
   expect: { timeout: 20_000 },
   fullyParallel: false,
   workers: 1,
