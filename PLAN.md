@@ -7,6 +7,9 @@ balloon with the correct translation makes the hunter's arrow fly to it and pop 
 Clicking a wrong balloon makes the arrow miss, costs points and resets the streak.
 
 ## Gameplay
+> **Later change:** the textarea was replaced by saved word lists (`src/wordLists.js`): ready-made lists plus the
+> player's own, each editable until locked, with one field per English and Hebrew word. See the README.
+
 1. **Word list screen** (HTML overlay above the canvas — needed for proper Hebrew/RTL typing):
    - `<textarea>` with one pair per line: `english - hebrew` (separators accepted: `-`, `–`, `—`, `,`, `:`, `=`, tab).
    - Shows a parse summary (N valid pairs, list of invalid line numbers).

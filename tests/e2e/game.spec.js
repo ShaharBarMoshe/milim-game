@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
+import { pairs, useWords } from './words.js';
+import { GAME_H, GAME_W, clickBalloon, snapshot } from './play.js';
 
-const WORDS = ['dog - כלב', 'cat - חתול', 'house - בית', 'sun - שמש'].join('\n');
-const GAME_W = 1280;
-const GAME_H = 720;
+const WORDS = pairs('dog=כלב', 'cat=חתול', 'house=בית', 'sun=שמש');
 
 let pageErrors;
 
@@ -17,77 +17,9 @@ test.afterEach(() => {
   expect(pageErrors.map((e) => String(e.stack || e))).toEqual([]);
 });
 
-// Snapshot of the game scene's quiz + balloons, with balloon centres converted to page coordinates.
-async function snapshot(page) {
-  return page.evaluate(
-    ({ W, H }) => {
-      const scene = window.game?.scene?.getScene('game');
-      if (!scene) return null;
-      const canvas = window.game.canvas;
-      const rect = canvas.getBoundingClientRect();
-      const cam = scene.cameras?.main;
-      const sx = rect.width / W;
-      const sy = rect.height / H;
-      const balloons = (scene.balloons || [])
-        .filter((b) => b && b.active !== false && b.visible !== false)
-        .map((b) => {
-          const gx = b.x - (cam?.scrollX || 0);
-          const gy = b.y - (cam?.scrollY || 0);
-          return {
-            word: b.word,
-            isAnswer: b.isAnswer,
-            gx,
-            gy,
-            px: rect.left + gx * sx,
-            py: rect.top + gy * sy,
-          };
-        });
-      const stats = scene.quiz?.stats ? scene.quiz.stats() : null;
-      return {
-        state: scene.state,
-        score: scene.score,
-        current: scene.quiz?.current ?? null,
-        stats,
-        balloons,
-      };
-    },
-    { W: GAME_W, H: GAME_H },
-  );
-}
-
-const onScreen = (b) => b.gx > 40 && b.gx < GAME_W - 40 && b.gy > 80 && b.gy < GAME_H - 100;
-
-// Repeatedly look for a clickable balloon matching `want` (on screen, not overlapping others, belonging
-// to the current question) and click its centre as soon as one is found.
-async function clickBalloon(page, want) {
-  let clicked = null;
-  await expect
-    .poll(
-      async () => {
-        const s = await snapshot(page);
-        if (!s || s.state !== 'playing' || !s.current) return false;
-        const answerPresent = s.balloons.some((b) => b.isAnswer && b.word === s.current.answer);
-        if (!answerPresent) return false;
-        const target = s.balloons.find(
-          (b) =>
-            b.isAnswer === (want === 'correct') &&
-            onScreen(b) &&
-            s.current.options.includes(b.word) &&
-            s.balloons.every((o) => o === b || Math.hypot(o.gx - b.gx, o.gy - b.gy) > 110),
-        );
-        if (!target) return false;
-        await page.mouse.click(target.px, target.py);
-        clicked = { ...target, before: s };
-        return true;
-      },
-      { timeout: 30_000, intervals: [100, 200, 250] },
-    )
-    .toBe(true);
-  return clicked;
-}
-
-async function startGame(page, text = WORDS) {
-  await page.locator('#word-input').fill(text);
+async function startGame(page, words = WORDS) {
+  await useWords(page, words);
+  await expect(page.locator('#word-form')).toBeVisible();
   await page.locator('#word-start').click();
   await expect(page.locator('#word-form')).toBeHidden();
   await page.waitForFunction(
@@ -101,10 +33,6 @@ async function startGame(page, text = WORDS) {
 }
 
 test('correct balloon scores, wrong balloon penalises and resets streak', async ({ page }) => {
-  await page.locator('#word-input').fill(WORDS);
-  await expect(page.locator('#word-summary')).toContainText('4');
-  await expect(page.locator('#word-start')).toBeEnabled();
-
   await startGame(page);
 
   const s0 = await snapshot(page);
@@ -177,35 +105,4 @@ test('clicking empty sky does not answer', async ({ page }) => {
   expect(after.stats.correct).toBe(0);
   expect(after.stats.wrong).toBe(0);
   expect(after.score).toBe(0);
-});
-
-test('Start is disabled with only one valid pair', async ({ page }) => {
-  const input = page.locator('#word-input');
-  const start = page.locator('#word-start');
-
-  await input.fill('dog - כלב');
-  await expect(start).toBeDisabled();
-  await expect(page.locator('#word-summary')).toContainText('1');
-
-  await input.fill('dog - כלב\nhello\ndog - כלב');
-  await expect(start).toBeDisabled();
-
-  await input.fill('');
-  await expect(start).toBeDisabled();
-
-  await input.fill('dog - כלב\ncat - חתול');
-  await expect(start).toBeEnabled();
-});
-
-test('word list is saved and pre-filled on reload', async ({ page }) => {
-  await page.locator('#word-input').fill(WORDS);
-  await page.reload();
-  await expect(page.locator('#word-form')).toBeVisible();
-  await expect(page.locator('#word-input')).toHaveValue(WORDS);
-});
-
-test('first visit pre-fills a sample list that can be started', async ({ page }) => {
-  const value = await page.locator('#word-input').inputValue();
-  expect(value.trim().length).toBeGreaterThan(0);
-  await expect(page.locator('#word-start')).toBeEnabled();
 });

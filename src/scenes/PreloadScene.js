@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { SAMPLE_PAIRS, loadWordList, parseWordList } from '../vocab.js';
+import { SAMPLE_PAIRS } from '../vocab.js';
+import { MIN_PAIRS, WordLibrary } from '../wordLists.js';
 
 export const BALLOON_COLORS = {
   red: 0xe8343c,
@@ -69,10 +70,10 @@ export default class PreloadScene extends Phaser.Scene {
       });
     }
     this.makeProceduralTextures();
-    // ?level=lava jumps straight to the lava level with the saved word list (handy for practice).
+    // ?level=lava jumps straight to the lava level with the chosen word list (handy for practice).
     if (new URLSearchParams(window.location.search).get('level') === 'lava') {
-      const saved = loadWordList();
-      this.scene.start('lava', { pairs: saved ? parseWordList(saved).pairs : SAMPLE_PAIRS });
+      const { pairs } = WordLibrary.load().selected;
+      this.scene.start('lava', { pairs: pairs.length >= MIN_PAIRS ? pairs : SAMPLE_PAIRS });
     } else {
       this.scene.start('game');
     }

@@ -28,27 +28,41 @@
       .word-panel h1 span { font-size: 20px; color: #cfe8ff; text-shadow: none; unicode-bidi: isolate; }
       .word-help { margin: 6px 0; font-size: 15px; color: #cfe8ff; line-height: 1.4; }
       .word-help code { background: rgba(255, 255, 255, 0.15); padding: 0 5px; border-radius: 4px; unicode-bidi: isolate; }
-      #word-input {
-        display: block; width: 100%; box-sizing: border-box; margin: 10px 0 6px;
-        min-height: 220px; resize: vertical; padding: 10px 12px;
-        font: 18px/1.5 Arial, 'Noto Sans Hebrew', sans-serif;
-        border: 2px solid #8fd3ff; border-radius: 10px; background: #f7fbff; color: #102030;
-        /* Each line picks its own direction, so a Hebrew-first line reads right-to-left. */
-        unicode-bidi: plaintext;
-      }
-      #word-input:focus { outline: 3px solid #ffe066; outline-offset: 1px; }
+      .word-form [hidden] { display: none !important; }
+      .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+      .list-bar, .list-head, .word-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0; }
+      .list-bar label { display: flex; flex: 1; align-items: center; gap: 8px; font-size: 16px; }
+      .word-form input, .word-form select, .word-form button { font: 16px Arial, 'Noto Sans Hebrew', sans-serif; border-radius: 8px; box-sizing: border-box; }
+      .word-form input, .word-form select { padding: 7px 10px; border: 2px solid #8fd3ff; background: #f7fbff; color: #102030; min-width: 0; }
+      #list-select { flex: 1; }
+      #list-name { flex: 1 1 220px; font-size: 20px; font-weight: bold; }
+      .word-form input[readonly] { background: #dfe8f0; border-color: #9fb3c4; color: #445; }
+      .word-form input:focus { outline: 3px solid #ffe066; outline-offset: 1px; }
+      .word-form input[aria-invalid='true'] { border-color: #ff6b5a; }
+      .word-form button { padding: 8px 16px; border: 0; cursor: pointer; color: #fff; font-weight: bold; }
+      .word-form button:disabled { background: #6b7b8a; cursor: not-allowed; }
+      .word-danger { background: #a33a3a; }
+      .word-danger.armed { background: #e0322b; }
+      .word-table-wrap { max-height: 260px; overflow-y: auto; border-radius: 10px; background: rgba(0, 0, 0, 0.2); }
+      #word-table { width: 100%; border-collapse: collapse; }
+      #word-table th { position: sticky; top: 0; background: #24456e; padding: 6px 8px; text-align: start; font-size: 14px; color: #cfe8ff; }
+      #word-table td { padding: 3px 4px; }
+      #word-table td:last-child { width: 40px; text-align: center; }
+      #word-table input { width: 100%; padding: 5px 8px; }
+      #word-empty { padding: 10px; margin: 0; }
+      .pair-remove { background: transparent !important; color: #ffb4a8 !important; padding: 4px 8px !important; font-size: 18px !important; }
+      .pair-remove:hover { color: #ff6b5a !important; }
+      .word-add input { flex: 1 1 160px; }
+      #word-error { min-height: 1.2em; font-size: 15px; }
       .word-summary { min-height: 1.4em; font-size: 15px; }
       .word-ok { color: #a8ffb0; }
       .word-bad { color: #ffb4a8; }
       .word-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
       .word-controls label { display: flex; align-items: center; gap: 8px; font-size: 16px; margin-right: auto; }
-      .word-controls select, .word-controls button { font: inherit; font-size: 16px; border-radius: 8px; }
-      .word-controls select { padding: 6px 8px; border: 2px solid #8fd3ff; }
-      .word-controls button { padding: 8px 18px; border: 0; cursor: pointer; color: #fff; font-weight: bold; }
       #word-start { background: #2e9e4f; font-size: 20px; padding: 10px 28px; }
-      #word-start:disabled { background: #6b7b8a; cursor: not-allowed; }
+      #word-start:disabled { background: #6b7b8a; }
       .word-secondary { background: #3a6ea5; }
-      .word-form button:focus-visible, .word-form select:focus-visible { outline: 3px solid #ffe066; outline-offset: 2px; }
+      .word-form button:focus-visible, .word-form select:focus-visible, .word-form input:focus-visible { outline: 3px solid #ffe066; outline-offset: 2px; }
     </style>
   </head>
   <body>

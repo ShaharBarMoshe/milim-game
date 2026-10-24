@@ -9,10 +9,16 @@ npm install
 npm run dev        # open the printed http://localhost URL
 ```
 
-1. **Word list**: type one pair per line, e.g. `dog - כלב` (also `,` `:` `=` `–` `—` or a tab). Hebrew-first lines are
-   swapped automatically, blank lines and lines starting with `#` are ignored, and unreadable lines are listed by number.
-   Pick a direction (Mixed by default: some questions show the English word, some the Hebrew; or English→Hebrew / Hebrew→English only) and press **Start** (needs at least 2 pairs; Ctrl+Enter works too).
-   The list is saved in the browser; the first visit starts with a sample list.
+1. **Word lists**: pick a list (Everyday words, Animals, Food, Home, School, Colors, or your own) and press **Start**
+   (needs at least 2 pairs; Ctrl+Enter works too). Pick a direction first if you like: Mixed by default (some questions
+   show the English word, some the Hebrew), or English→Hebrew / Hebrew→English only.
+   - **+ New list** makes an empty list; type its name in the name box.
+   - Add a word by typing the English in one box and the Hebrew in the other (Enter moves on, Enter again adds).
+     Wrong input is explained (Hebrew in the English box, a word already in the list, …) and nothing is added.
+   - Edit any word right in the table, or remove it with ✕. An edit that would break the list is undone.
+   - **🔓 Unlocked / 🔒 Locked** protects a list: a locked list can be played but not changed or deleted until unlocked.
+   - **Delete list** asks for a second click. Every list, ready-made ones included, can be edited unless locked.
+   - Everything is saved in the browser. A list typed in the old text box is kept as "My words".
 2. **Questions**: the banner shows a word and a wave of balloons rises with candidate translations.
    - Click the right balloon: the arrow homes in and pops it. +10 points, plus 2 per answer in your current streak (up to +10).
    - Click a wrong balloon: the arrow flies past it, −5 points (never below 0), the streak resets and the right balloon flashes.
@@ -30,11 +36,12 @@ Get **90% or more** of a balloon round right (escaped waves count as misses, at 
 - Click a rock in the next column, or just type the letter.
 - A wrong letter sinks its rock and the robot drowns in the lava: one of 3 lives lost, back on the last safe rock.
 - 10 points per letter, +20 for a word with no mistakes. 5 words per game, taken from your list (single English words of 2–8 letters).
-- Practice it directly: open `http://localhost:5173/?level=lava` (uses the saved word list).
+- Practice it directly: open `http://localhost:5173/?level=lava` (uses the chosen word list).
 
 ## Code
 
-- `src/vocab.js`: parse/serialize the word list, sample pairs, localStorage load/save (never throws).
+- `src/vocab.js`: sample pairs, and the old one-text-box word list format (read once to move it into a list).
+- `src/wordLists.js`: ready-made lists, `checkPair` validation and `WordLibrary` (create, rename, lock, delete lists; add, edit, remove pairs; saved in localStorage, never throws).
 - `src/quiz.js`: questions, options, scoring and stats (`Quiz`, `shuffle`, `DIRECTIONS`); pass `random` for determinism.
 - `src/ballistics.js`: `steer` (homing step) and `missPoint` (where a deliberate miss passes).
 - `src/ui/wordListForm.js`: the HTML word-list overlay (HTML so Hebrew typing and RTL work natively).

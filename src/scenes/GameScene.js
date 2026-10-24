@@ -3,9 +3,8 @@ import { ARCHER_FRAMES, BALLOON_COLORS } from './PreloadScene.js';
 import { sfx } from '../sound.js';
 import { Quiz, DIRECTIONS } from '../quiz.js';
 import { steer, missPoint } from '../ballistics.js';
-import { SAMPLE_PAIRS, loadWordList, serializeWordList } from '../vocab.js';
 import { showWordListForm, hideWordListForm } from '../ui/wordListForm.js';
-import { lavaUnlocked, successRate, UNLOCK_SUCCESS } from '../spelling.js';
+import { lavaUnlocked, spellingWord, successRate, UNLOCK_SUCCESS } from '../spelling.js';
 
 const W = 1280;
 const H = 720;
@@ -201,7 +200,6 @@ export default class GameScene extends Phaser.Scene {
     this.banner.setVisible(false);
     this.updateHud();
     showWordListForm({
-      initialText: loadWordList() ?? serializeWordList(this.pairs ?? SAMPLE_PAIRS),
       initialDirection: this.direction,
       onStart: (pairs, direction) => this.startRound(pairs, direction),
     });
@@ -264,7 +262,9 @@ export default class GameScene extends Phaser.Scene {
     const shown = s.missedPairs.slice(0, 12);
     const rows = shown.length > 6 ? Math.ceil(shown.length / 2) : shown.length;
     const extra = s.missedPairs.length > shown.length ? 30 : 0;
-    const unlocked = lavaUnlocked(s);
+    // The lava level spells English words, so a Hebrew–Hebrew list doesn't lead there.
+    const canSpell = this.pairs.some((p) => spellingWord(p.en));
+    const unlocked = canSpell && lavaUnlocked(s);
     const panelH = 330 + (unlocked ? 50 : 0) + (shown.length ? 80 + rows * 32 + extra : 0);
     const top = H / 2 - panelH / 2;
     items.push(this.add.rectangle(W / 2, H / 2, 820, panelH, 0x1d3557, 0.9).setStrokeStyle(4, 0xffffff));
@@ -307,7 +307,7 @@ export default class GameScene extends Phaser.Scene {
       items.push(this.makeButton(W / 2, by, 'Lava level', 0xc0480e, () => this.scene.start('lava', { pairs: this.pairs })));
       items.push(this.makeButton(W / 2 + 260, by, 'Edit words', 0x3a6ea5, () => this.openSetup()));
     } else {
-      if (s.correct + s.wrong + s.missed > 0) {
+      if (canSpell && s.correct + s.wrong + s.missed > 0) {
         items.push(this.add.text(W / 2, by - 50, `Get ${UNLOCK_SUCCESS}% right to unlock the lava level`, {
           fontFamily: FONT, fontSize: '18px', color: '#cfe8ff',
         }).setOrigin(0.5));

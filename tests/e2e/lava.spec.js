@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
+import { pairs, useWords } from './words.js';
 
-const WORDS = ['dog - כלב', 'cat - חתול', 'sun - שמש'].join('\n');
+const WORDS = pairs('dog=כלב', 'cat=חתול', 'sun=שמש');
 
 let pageErrors;
 
@@ -9,9 +10,7 @@ test.beforeEach(async ({ page }) => {
   page.on('pageerror', (err) => pageErrors.push(err));
   // Save the word list the way the form does, then open the lava level directly.
   await page.goto('/');
-  await expect(page.locator('#word-form')).toBeVisible();
-  await page.locator('#word-input').fill(WORDS);
-  await page.goto('/?level=lava');
+  await useWords(page, WORDS, '/?level=lava');
   await page.waitForFunction(() => window.game?.scene?.getScene('lava')?.state === 'playing', null, { timeout: 30_000 });
 });
 
@@ -226,7 +225,7 @@ test('below 90% there is no lava button', async ({ page }) => {
 });
 
 // Long words, so the camera has scrolled well along the lava by the time the game ends.
-const LONG_WORDS = ['elephant - פיל', 'umbrella - מטריה', 'computer - מחשב'].join('\n');
+const LONG_WORDS = pairs('elephant=פיל', 'umbrella=מטריה', 'computer=מחשב');
 
 // Click a fixed-on-screen button of the lava scene by its label.
 async function clickLavaButton(page, label) {
@@ -239,11 +238,11 @@ async function clickLavaButton(page, label) {
   await page.mouse.click(pos.x, pos.y);
 }
 
-// Walk 6 letters along the word, then lose every life there.
+// Walk 6 letters along the word, then lose every life there. That's a lot of jumping, so on a busy
+// machine (headless software WebGL can drop to a few frames a second) it gets extra time.
 async function loseFarAlong(page) {
-  await page.goto('/');
-  await page.locator('#word-input').fill(LONG_WORDS);
-  await page.goto('/?level=lava');
+  test.setTimeout(180_000);
+  await useWords(page, LONG_WORDS, '/?level=lava');
   await waitForPlaying(page);
   const { word } = await lava(page);
   for (let i = 0; i < 6; i++) {
