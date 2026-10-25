@@ -1,5 +1,6 @@
 // A row of small badges in a game's HUD, one for each shop item active in this game.
 import { item } from '../shop.js';
+import { itemText } from './lang.js';
 
 const ICONS = {
   'balloons-time': '⏱', 'balloons-slow': '🎈', 'balloons-fire': '🔥', 'archer-gold': '🏇', 'archer-night': '🌙',
@@ -29,7 +30,7 @@ export function showPerks(scene, entries, { right, top, depth = 90 }) {
     g.fillStyle(0x0f172a, 0.72).fillRoundedRect(x - BADGE_W / 2, top, BADGE_W, BADGE_H, 10);
     g.lineStyle(2, it.kind === 'single' ? 0x34d399 : 0xfcd34d, 0.9).strokeRoundedRect(x - BADGE_W / 2, top, BADGE_W, BADGE_H, 10);
     const icon = scene.add.text(x, top + 20, ICONS[it.id] ?? '★', { fontSize: '24px', color: '#ffffff' }).setOrigin(0.5);
-    const label = scene.add.text(x, top + 45, `${it.short ?? it.name}${counts[it.id] ? ` ×${counts[it.id]}` : ''}`, {
+    const label = scene.add.text(x, top + 45, `${itemText(it, 'short') || itemText(it, 'name')}${counts[it.id] ? ` ×${counts[it.id]}` : ''}`, {
       fontFamily: FONT, fontSize: '12px', fontStyle: 'bold', color: '#f8fafc',
     }).setOrigin(0.5);
     parts.push(g, icon, label);

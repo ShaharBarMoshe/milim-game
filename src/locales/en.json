@@ -1,0 +1,340 @@
+{
+  "app": {
+    "title": "Balloon Archer"
+  },
+  "lang": {
+    "switch": "עברית"
+  },
+  "common": {
+    "points": "{{points}} points",
+    "stageBonus": "⭐ Stage bonus +{{bonus}}",
+    "using": "Using: {{items}}"
+  },
+  "keys": {
+    "space": "Space"
+  },
+  "hud": {
+    "success": "Success: {{success}}%"
+  },
+  "buttons": {
+    "playAgain": "Play again",
+    "lavaLevel": "Lava level",
+    "lava": "Lava",
+    "balloons": "Balloons",
+    "map": "Map",
+    "ok": "OK",
+    "buy": "Buy",
+    "cancel": "Cancel"
+  },
+  "map": {
+    "title": "The Word Realm",
+    "hint": "Choose a place to play",
+    "words": "Words: {{name}}",
+    "changeWords": "Change words",
+    "locked": "No words to spell here:\nadd single words of 2–12 letters.",
+    "clickPlay": "Click to play!",
+    "clickShop": "Click to go shopping!",
+    "obsidian": "Obsidian Fields",
+    "camp": "Word Camp",
+    "north": "N",
+    "shopSign": "SHOP"
+  },
+  "places": {
+    "balloons": {
+      "name": "Balloon Meadow",
+      "about": "Ride and shoot the balloon\nthat carries the right translation."
+    },
+    "lava": {
+      "name": "Lava Crossing",
+      "about": "Spell the word by jumping\nfrom rock to rock over the lava."
+    },
+    "shark": {
+      "name": "Shark Lake",
+      "about": "Swim to the right letters\nbefore the shark catches you!"
+    },
+    "shop": {
+      "name": "Trading Post",
+      "about": "Spend your points on upgrades\nand skins for the games."
+    }
+  },
+  "games": {
+    "balloons": "Balloon Meadow",
+    "lava": "Lava Crossing",
+    "shark": "Shark Lake",
+    "players": "Players"
+  },
+  "balloons": {
+    "newBest": "NEW BEST!",
+    "timesUp": "TIME'S UP!",
+    "scoreLine": "Score: {{score}}     Best: {{best}}",
+    "statsLine": "Correct: {{correct}}   Wrong: {{wrong}}   Missed: {{missed}}   Success: {{success}}%",
+    "pointsLine": "Best streak: {{streak}}   🪙 +{{score}} this round, {{total}} in all",
+    "practise": "Words to practise",
+    "andMore": "…and {{n}} more",
+    "windCalm": "Wind: calm",
+    "wind": "Wind: {{dir}} {{strength}}",
+    "streak": "Streak x{{streak}}",
+    "popTranslation": "Pop the translation of",
+    "tooLate": "Too late! The answer was",
+    "boostTime": "+{{seconds}} s ({{left}} left)",
+    "boostSlow": "Slow balloons ({{left}} left)"
+  },
+  "spell": {
+    "inEnglish": "Spell in English",
+    "inHebrew": "Spell the matching word in Hebrew",
+    "wordOf": "Word {{index}} / {{total}}",
+    "noWords": "No words to spell",
+    "noWordsDetail": "Add single words (2–12 letters) to your list.",
+    "wrongLetter": "\"{{letter}}\" is wrong!",
+    "tryAgain": "Try again: which letter comes next?",
+    "theWordWas": "The word was \"{{word}}\".",
+    "summary": "Words spelled: {{spelled}} / {{total}}   Mistakes: {{mistakes}}",
+    "pointsLine": "Score: {{score}}   🪙 +{{score}} this game, {{total}} in all"
+  },
+  "lava": {
+    "ropes": "Safety ropes: {{n}}",
+    "extraLife": "Extra life ({{left}} left)",
+    "ropeSaved": "The rope saved you!",
+    "ropesLeft": "Ropes left: {{n}}",
+    "noRopesLeft": "No ropes left",
+    "burnedOut": "Burned out!",
+    "master": "Lava master!",
+    "crossedAll": "You crossed every word."
+  },
+  "shark": {
+    "repelled": "Shark repellent: the shark is stunned!",
+    "wrongLetter": "\"{{letter}}\" is wrong! The shark lunges!",
+    "right": "Right! The shark is stunned",
+    "escaped": "You escaped!",
+    "spelledAll": "You spelled every word.",
+    "caught": "Caught!",
+    "chomp": "Chomp! Lives left: {{n}}",
+    "hint": "Swim with the arrow keys or the mouse · Space: hear the word · Esc: map"
+  },
+  "shop": {
+    "title": "The Trading Post",
+    "subtitle": "Points from every game add up here. Choose something to buy.",
+    "back": "← Map",
+    "have": "Have {{n}}",
+    "wearing": "Wearing",
+    "wear": "Wear it",
+    "yours": "Yours",
+    "costs": "It costs 🪙 {{cost}} and you have 🪙 {{points}}.",
+    "needMore": "You need {{n}} more points: play a game to earn them!",
+    "buyOneMore": "Buy one more for 🪙 {{cost}} points?",
+    "buyIt": "Buy it for 🪙 {{cost}} points?",
+    "lasts": "Each one lasts {{lasts}}. You have {{n}} now.",
+    "forGood": "It stays yours for good.",
+    "leaving": "You have 🪙 {{points}}, leaving 🪙 {{left}}."
+  },
+  "form": {
+    "wordList": "Word list",
+    "newList": "New list",
+    "newListName": "New list",
+    "upload": "Upload list",
+    "share": "Share list",
+    "sendList": "Send this list:",
+    "email": "Email",
+    "download": "Download file",
+    "closeShare": "Close sharing",
+    "listName": "List name",
+    "listKind": "Kind of list",
+    "deleteList": "Delete list",
+    "confirmDelete": "Click again to delete",
+    "remove": "Remove",
+    "removeWord": "Remove {{word}}",
+    "empty": "No words yet — add the first pair below.",
+    "add": "Add",
+    "direction": "Direction",
+    "mixed": "Mixed (both ways)",
+    "toMap": "To the map",
+    "help": "Next, choose a game on the map. Ctrl+Enter goes there too.",
+    "pairs": "{{n}} pairs",
+    "lockedNote": "locked, unlock to edit",
+    "notEnough": "Pairs: {{n}} — add at least {{min}} to play",
+    "kindLocked": "Only an empty list can change its kind",
+    "newEnglish": "New English word",
+    "newHebrew": "New Hebrew word",
+    "newFirst": "New first word",
+    "newSecond": "New second word",
+    "englishWord": "English word {{n}}",
+    "hebrewWord": "Hebrew word {{n}}",
+    "firstWord": "First word {{n}}",
+    "secondWord": "Second word {{n}}",
+    "locked": "Locked",
+    "unlocked": "Unlocked",
+    "unlockTip": "Unlock to edit this list",
+    "lockTip": "Lock to protect this list from changes",
+    "chooseFile": "Choose a .json or .txt word list file",
+    "tooBig": "The file is too big (1 MB at most)",
+    "cantRead": "Couldn't read {{file}}",
+    "added": "Added {{n}} words from {{file}}",
+    "skipped": "(skipped {{n}}: {{rows}})",
+    "skippedRow": "row {{row}} – {{error}}",
+    "sharing": "Sharing {{n}} words",
+    "shareMenuWhatsapp": "Choose WhatsApp in the share menu to send {{file}}.",
+    "shareMenuMail": "Choose Mail in the share menu to send {{file}}.",
+    "attachWhatsapp": "{{file}} was downloaded: attach it in the WhatsApp chat.",
+    "attachMail": "{{file}} was downloaded: attach it to the email.",
+    "downloaded": "Downloaded {{file}}.",
+    "undone": "{{error}} — change undone"
+  },
+  "kinds": {
+    "enHe": {
+      "name": "English – Hebrew",
+      "first": "English",
+      "second": "עברית",
+      "firstHint": "English, e.g. dog",
+      "secondHint": "עברית, למשל כלב",
+      "forward": "English → Hebrew",
+      "backward": "Hebrew → English"
+    },
+    "heHe": {
+      "name": "Hebrew – Hebrew",
+      "first": "Word",
+      "second": "Matching word",
+      "firstHint": "A Hebrew word",
+      "secondHint": "Its matching word",
+      "forward": "Left word → right word",
+      "backward": "Right word → left word"
+    }
+  },
+  "errors": {
+    "type": {
+      "English": "Type the English word",
+      "Hebrew": "Type the Hebrew word",
+      "first": "Type the first word",
+      "second": "Type the second word"
+    },
+    "letters": {
+      "English": "The English word needs English letters",
+      "Hebrew": "The Hebrew word needs Hebrew letters",
+      "first": "The first word needs Hebrew letters",
+      "second": "The second word needs Hebrew letters"
+    },
+    "tooLong": "Keep it under {{max}} letters",
+    "same": "The two words must be different",
+    "duplicate": "\"{{word}}\" is already in this list",
+    "noValidWords": "No valid words in this file",
+    "nothingToShare": "This list has no valid words to share",
+    "notAFile": "This is not a word list file",
+    "notAPair": "Not a word pair"
+  },
+  "items": {
+    "balloons-time": {
+      "name": "More time",
+      "short": "+15 s",
+      "about": "+15 seconds for one round",
+      "lasts": "one round"
+    },
+    "balloons-slow": {
+      "name": "Slow balloons",
+      "short": "Slow",
+      "about": "Balloons rise a quarter slower for one round",
+      "lasts": "one round"
+    },
+    "balloons-fire": {
+      "name": "Fire arrows",
+      "short": "Fire",
+      "about": "Blazing orange arrows, for good"
+    },
+    "archer-gold": {
+      "name": "Golden archer",
+      "short": "Gold",
+      "about": "A rider dipped in gold"
+    },
+    "archer-night": {
+      "name": "Night rider",
+      "short": "Night",
+      "about": "Dark as a moonless night"
+    },
+    "lava-rope": {
+      "name": "Safety rope",
+      "short": "Rope",
+      "about": "Catches you once: keep your life on a wrong letter",
+      "lasts": "one save"
+    },
+    "lava-life": {
+      "name": "Extra life",
+      "short": "+1 life",
+      "about": "4 lives instead of 3 for one game",
+      "lasts": "one game"
+    },
+    "robot-gold": {
+      "name": "Gold robot",
+      "short": "Gold",
+      "about": "Shiny and fireproof-looking"
+    },
+    "robot-ice": {
+      "name": "Ice robot",
+      "short": "Ice",
+      "about": "Cool under pressure"
+    },
+    "shark-repel": {
+      "name": "Shark repellent",
+      "short": "Repel",
+      "about": "The shark starts the game stunned for 5 seconds",
+      "lasts": "one game"
+    },
+    "diver-red": {
+      "name": "Red wetsuit",
+      "short": "Red",
+      "about": "A bright red wetsuit"
+    },
+    "diver-orange": {
+      "name": "Orange wetsuit",
+      "short": "Orange",
+      "about": "Rescue-team orange"
+    },
+    "diver-purple": {
+      "name": "Purple wetsuit",
+      "short": "Purple",
+      "about": "Deep-sea purple"
+    },
+    "diver-pink": {
+      "name": "Pink wetsuit",
+      "short": "Pink",
+      "about": "Coral-reef pink"
+    },
+    "diver-black": {
+      "name": "Black wetsuit",
+      "short": "Black",
+      "about": "Stealthy night-dive black"
+    },
+    "player-girl": {
+      "name": "Girl",
+      "short": "Girl",
+      "about": "Runs and shoots arrows"
+    },
+    "player-boy": {
+      "name": "Boy",
+      "short": "Boy",
+      "about": "Runs and shoots arrows"
+    },
+    "player-axe-boy": {
+      "name": "Axe warrior",
+      "short": "Warrior",
+      "about": "Throws a spinning axe"
+    },
+    "player-axe-scout": {
+      "name": "Axe scout",
+      "short": "Scout",
+      "about": "Throws a spinning axe"
+    },
+    "player-axe-girl": {
+      "name": "Axe girl",
+      "short": "Axe girl",
+      "about": "Throws a spinning axe"
+    },
+    "player-shadow-mage": {
+      "name": "Shadow mage",
+      "short": "Shadow",
+      "about": "Casts purple magic orbs"
+    },
+    "player-frost-mage": {
+      "name": "Frost mage",
+      "short": "Frost",
+      "about": "Casts glowing frost orbs"
+    }
+  }
+}

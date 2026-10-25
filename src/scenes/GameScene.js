@@ -10,6 +10,8 @@ import { Shop } from '../shop.js';
 import { WordHistory, stageBonus } from '../score.js';
 import { showPerks } from './perks.js';
 import { PLAYER_SPRITES, PROJECTILES } from '../players.js';
+import { t, textStyle } from '../i18n.js';
+import { centeredText } from './lang.js';
 
 const W = 1280;
 const H = 720;
@@ -172,18 +174,18 @@ export default class GameScene extends Phaser.Scene {
     const style = { fontFamily: FONT, fontSize: '28px', color: '#ffffff', stroke: '#1d3557', strokeThickness: 6 };
     this.scoreText = this.add.text(24, 18, '', style).setDepth(90);
     this.timeText = this.add.text(W / 2, 18, '', style).setOrigin(0.5, 0).setDepth(90);
-    this.accText = this.add.text(W - 24, 18, '', style).setOrigin(1, 0).setDepth(90);
-    this.windText = this.add.text(W / 2, 54, '', { ...style, fontSize: '20px' }).setOrigin(0.5, 0).setDepth(90);
-    this.comboText = this.add.text(24, 56, '', { ...style, fontSize: '22px', color: '#ffe066' }).setDepth(90);
+    this.accText = this.add.text(W - 24, 18, '', textStyle(style)).setOrigin(1, 0).setDepth(90);
+    this.windText = this.add.text(W / 2, 54, '', textStyle({ ...style, fontSize: '20px' })).setOrigin(0.5, 0).setDepth(90);
+    this.comboText = this.add.text(24, 56, '', textStyle({ ...style, fontSize: '22px', color: '#ffe066' })).setOrigin(0, 0).setDepth(90);
     this.resetStats();
     this.updateHud();
   }
 
   createBanner() {
     this.bannerBg = this.add.graphics();
-    this.bannerCaption = this.add.text(0, -28, '', {
+    this.bannerCaption = this.add.text(0, -28, '', textStyle({
       fontFamily: FONT, fontSize: '18px', color: '#cfe8ff',
-    }).setOrigin(0.5);
+    })).setOrigin(0.5);
     this.bannerWord = this.add.text(0, 10, '', {
       fontFamily: FONT, fontSize: '44px', fontStyle: 'bold', color: '#ffffff', stroke: '#0b1c2c', strokeThickness: 6,
     }).setOrigin(0.5);
@@ -294,20 +296,20 @@ export default class GameScene extends Phaser.Scene {
     const panelH = 330 + (shown.length ? 80 + rows * 32 + extra : 0);
     const top = H / 2 - panelH / 2;
     items.push(this.add.rectangle(W / 2, H / 2, 820, panelH, 0x1d3557, 0.9).setStrokeStyle(4, 0xffffff));
-    items.push(this.add.text(W / 2, top + 50, isBest ? 'NEW BEST!' : "TIME'S UP!", {
+    items.push(this.add.text(W / 2, top + 50, t(isBest ? 'balloons.newBest' : 'balloons.timesUp'), textStyle({
       fontFamily: FONT, fontSize: '50px', fontStyle: 'bold', color: '#ffe066', stroke: '#000', strokeThickness: 6,
-    }).setOrigin(0.5));
-    items.push(this.add.text(W / 2, top + 130,
-      `Score: ${this.score}     Best: ${this.best}${this.bonus ? `     ⭐ Stage bonus +${this.bonus}` : ''}\n` +
-      `Correct: ${s.correct}   Wrong: ${s.wrong}   Missed: ${s.missed}   Success: ${successRate(s)}%\n` +
-      `Best streak: ${s.bestStreak}   🪙 +${this.score} this round, ${this.shop.points} in all`, {
+    })).setOrigin(0.5));
+    items.push(centeredText(this, W / 2, top + 130,
+      `${t('balloons.scoreLine', { score: this.score, best: this.best })}${this.bonus ? `     ${t('common.stageBonus', { bonus: this.bonus })}` : ''}\n` +
+      `${t('balloons.statsLine', { correct: s.correct, wrong: s.wrong, missed: s.missed, success: successRate(s) })}\n` +
+      t('balloons.pointsLine', { streak: s.bestStreak, score: this.score, total: this.shop.points }), {
         fontFamily: FONT, fontSize: '24px', color: '#ffffff', align: 'center', lineSpacing: 8,
-      }).setOrigin(0.5));
+      }));
 
     if (s.missedPairs.length) {
-      items.push(this.add.text(W / 2, top + 210, 'Words to practise', {
+      items.push(this.add.text(W / 2, top + 210, t('balloons.practise'), textStyle({
         fontFamily: FONT, fontSize: '22px', fontStyle: 'bold', color: '#ffb4a8',
-      }).setOrigin(0.5));
+      })).setOrigin(0.5));
       // Two columns of "english – עברית" lines; anything beyond 12 is summarised.
       shown.forEach((p, i) => {
         const col = shown.length > 6 ? (i < Math.ceil(shown.length / 2) ? -1 : 1) : 0;
@@ -317,17 +319,17 @@ export default class GameScene extends Phaser.Scene {
         }).setOrigin(0.5, 0));
       });
       if (s.missedPairs.length > shown.length) {
-        items.push(this.add.text(W / 2, top + 248 + rows * 32, `…and ${s.missedPairs.length - shown.length} more`, {
+        items.push(this.add.text(W / 2, top + 248 + rows * 32, t('balloons.andMore', { n: s.missedPairs.length - shown.length }), textStyle({
           fontFamily: FONT, fontSize: '18px', color: '#cfe8ff',
-        }).setOrigin(0.5, 0));
+        })).setOrigin(0.5, 0));
       }
     }
 
     const by = top + panelH - 55;
     const buttons = [
-      ['Play again', 0x2e9e4f, () => this.startRound()],
-      canSpell && ['Lava level', 0xc0480e, () => this.scene.start('lava', { pairs: this.pairs })],
-      ['Map', 0x3a6ea5, () => this.scene.start('map')],
+      [t('buttons.playAgain'), 0x2e9e4f, () => this.startRound()],
+      canSpell && [t('buttons.lavaLevel'), 0xc0480e, () => this.scene.start('lava', { pairs: this.pairs })],
+      [t('buttons.map'), 0x3a6ea5, () => this.scene.start('map')],
     ].filter(Boolean);
     buttons.forEach(([label, color, onClick], i) => {
       items.push(this.makeButton(W / 2 + (i - (buttons.length - 1) / 2) * 260, by, label, color, onClick));
@@ -336,11 +338,11 @@ export default class GameScene extends Phaser.Scene {
   }
 
   makeButton(x, y, label, color, onClick) {
-    const btn = this.add.text(x, y, label, {
+    const btn = this.add.text(x, y, label, textStyle({
       fontFamily: FONT, fontSize: '28px', fontStyle: 'bold', color: '#ffffff',
       backgroundColor: Phaser.Display.Color.IntegerToColor(color).rgba,
       padding: { x: 26, y: 12 },
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    })).setOrigin(0.5).setInteractive({ useHandCursor: true });
     btn.on('pointerover', () => btn.setScale(1.06));
     btn.on('pointerout', () => btn.setScale(1));
     // pointerup, so the same press can't also land as a click in the freshly started round.
@@ -360,11 +362,11 @@ export default class GameScene extends Phaser.Scene {
     this.scoreText.setText(playing && this.tally ? `🪙 ${this.tally.total}  (+${this.score})` : '');
     this.timeText.setText(playing ? `⏱ ${Math.max(0, this.timeLeft)}` : '');
     this.timeText.setColor(this.timeLeft <= 10 ? '#ff6b6b' : '#ffffff');
-    this.accText.setText(playing && stats ? `Success: ${successRate(stats)}%` : '');
+    this.accText.setText(playing && stats ? t('hud.success', { success: successRate(stats) }) : '');
     const strength = Math.round(Math.abs(this.wind) / 32);
     const dir = (this.wind < 0 ? '◀' : '▶').repeat(strength);
-    this.windText.setText(!playing ? '' : strength === 0 ? 'Wind: calm' : `Wind: ${dir} ${strength}`);
-    this.comboText.setText(playing && stats?.streak >= 2 ? `Streak x${stats.streak}` : '');
+    this.windText.setText(!playing ? '' : strength === 0 ? t('balloons.windCalm') : t('balloons.wind', { dir, strength }));
+    this.comboText.setText(playing && stats?.streak >= 2 ? t('balloons.streak', { streak: stats.streak }) : '');
   }
 
   // ---------------------------------------------------------------- questions & waves
@@ -375,7 +377,7 @@ export default class GameScene extends Phaser.Scene {
     this.waveId++;
     this.waveResolved = false;
     this.question = this.quiz.next();
-    this.setBanner('Pop the translation of', this.question.prompt);
+    this.setBanner(t('balloons.popTranslation'), this.question.prompt);
     // Say the pair's English word whichever side the banner shows: the question, or the answer to find
     // when the question is the Hebrew word. A Hebrew–Hebrew pair has no English word and stays silent.
     voice.say(this.question.pair.en);
@@ -489,7 +491,7 @@ export default class GameScene extends Phaser.Scene {
   waveEscaped() {
     this.waveResolved = true;
     this.quiz.skip();
-    this.setBanner('Too late! The answer was', this.question.answer, '#ffd166');
+    this.setBanner(t('balloons.tooLate'), this.question.answer, '#ffd166');
     voice.say(this.question.pair.en);
     this.updateHud();
     const id = this.waveId;
@@ -587,13 +589,13 @@ export default class GameScene extends Phaser.Scene {
   // Say which single-use shop items this round uses, and how many are left.
   announceBoosts() {
     const used = [
-      this.boosts.time && `⏱ +${MORE_TIME_SECONDS} s (${this.shop.count('balloons-time')} left)`,
-      this.boosts.slow && `🎈 Slow balloons (${this.shop.count('balloons-slow')} left)`,
+      this.boosts.time && `⏱ ${t('balloons.boostTime', { seconds: MORE_TIME_SECONDS, left: this.shop.count('balloons-time') })}`,
+      this.boosts.slow && `🎈 ${t('balloons.boostSlow', { left: this.shop.count('balloons-slow') })}`,
     ].filter(Boolean);
     if (!used.length) return;
-    this.boostText = this.add.text(W / 2, 150, `Using: ${used.join('   ')}`, {
+    this.boostText = this.add.text(W / 2, 150, t('common.using', { items: used.join('   ') }), textStyle({
       fontFamily: FONT, fontSize: '22px', fontStyle: 'bold', color: '#fff7c2', stroke: '#1d3557', strokeThickness: 5,
-    }).setOrigin(0.5).setDepth(60);
+    })).setOrigin(0.5).setDepth(60);
     this.tweens.add({ targets: this.boostText, alpha: 0, delay: 2500, duration: 600, onComplete: () => this.boostText.destroy() });
   }
 

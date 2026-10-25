@@ -140,6 +140,42 @@ export default class PreloadScene extends Phaser.Scene {
       g.generateTexture(key, 52, 52);
       g.clear();
     }
+    this.makeFlags(g);
     g.destroy();
+  }
+
+  // The language button's flags, drawn (emoji flags don't show on Windows) at twice their on-screen size.
+  makeFlags(g) {
+    const fw = 108;
+    const fh = 72;
+    // The US: 13 red and white stripes, and a blue canton with rows of stars (dots at this size).
+    const stripe = fh / 13;
+    for (let i = 0; i < 13; i++) g.fillStyle(i % 2 ? 0xffffff : 0xb22234).fillRect(0, i * stripe, fw, Math.ceil(stripe));
+    const cw = fw * 0.42;
+    const ch = stripe * 7;
+    g.fillStyle(0x3c3b6e).fillRect(0, 0, cw, ch);
+    g.fillStyle(0xffffff);
+    for (let row = 0; row < 5; row++) {
+      for (let col = 0; col < (row % 2 ? 5 : 6); col++) {
+        g.fillCircle((col + (row % 2 ? 1 : 0.5)) * (cw / 6), (row + 0.6) * (ch / 5.2), 1.8);
+      }
+    }
+    g.lineStyle(2, 0x1f2937, 0.5).strokeRect(1, 1, fw - 2, fh - 2);
+    g.generateTexture('flag_us', fw, fh);
+    g.clear();
+    // Israel: white, two blue stripes, and the Star of David (two outlined triangles) in the middle.
+    const blue = 0x0038b8;
+    g.fillStyle(0xffffff).fillRect(0, 0, fw, fh);
+    g.fillStyle(blue).fillRect(0, fh * 0.1, fw, fh * 0.15).fillRect(0, fh * 0.75, fw, fh * 0.15);
+    const r = fh * 0.2;
+    const tri = (flip) =>
+      [0, 1, 2].map((k) => {
+        const a = -Math.PI / 2 + (k * 2 * Math.PI) / 3 + (flip ? Math.PI : 0);
+        return new Phaser.Math.Vector2(fw / 2 + Math.cos(a) * r, fh / 2 + Math.sin(a) * r);
+      });
+    g.lineStyle(3.5, blue).strokePoints(tri(false), true).strokePoints(tri(true), true);
+    g.lineStyle(2, 0x1f2937, 0.5).strokeRect(1, 1, fw - 2, fh - 2);
+    g.generateTexture('flag_il', fw, fh);
+    g.clear();
   }
 }

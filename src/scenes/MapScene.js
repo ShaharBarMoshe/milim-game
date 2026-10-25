@@ -9,37 +9,32 @@ import { spellingTarget } from '../spelling.js';
 import { Shop } from '../shop.js';
 import { FRAMES_PER_ROW, SWIM_ROWS } from '../sharkChase.js';
 import { FONT, H, INK, W, drawParchment, drawShopSign } from './parchment.js';
+import { isRtl, language, t, textStyle } from '../i18n.js';
+import { addLangButton } from './lang.js';
 
 
 
 const CAMP = { x: 640, y: 560 };
+// Each place's name and description are in the locales, under places.<key>.name / .about.
 const SPOTS = {
   balloons: {
     x: 330,
     y: 300,
-    name: 'Balloon Meadow',
-    about: 'Ride and shoot the balloon\nthat carries the right translation.',
     color: 0xe63946,
   },
   lava: {
     x: 975,
     y: 420,
-    name: 'Lava Crossing',
-    about: 'Spell the word by jumping\nfrom rock to rock over the lava.',
     color: 0xf97316,
   },
   shark: {
     x: 290,
     y: 585,
-    name: 'Shark Lake',
-    about: 'Swim to the right letters\nbefore the shark catches you!',
     color: 0x0284c7,
   },
   shop: {
     x: 655,
     y: 385,
-    name: 'Trading Post',
-    about: 'Spend your points on upgrades\nand skins for the games.',
     color: 0xb45309,
   },
 };
@@ -56,6 +51,7 @@ export default class MapScene extends Phaser.Scene {
 
   create(data) {
     this.state = 'setup';
+    this.language = language(); // the texts are drawn in it; a switch on the word-list form redraws the map
     this.hovered = null;
     this.spots = {};
     this.events.once('shutdown', hideWordListForm);
@@ -99,15 +95,19 @@ export default class MapScene extends Phaser.Scene {
 
   showMap() {
     hideWordListForm();
+    if (this.language !== language()) {
+      this.scene.restart();
+      return;
+    }
     this.state = 'map';
     const { pairs, listName } = currentWords(this.registry);
-    this.listText.setText(`Words: ${listName}`);
-    this.pointsText.setText(`🪙 ${new Shop().points} points`);
+    this.listText.setText(t('map.words', { name: listName }));
+    this.pointsText.setText(`🪙 ${t('common.points', { points: new Shop().points })}`);
     // The spelling games are always open, unless the list has no single word to spell (only phrases,
     // or words over 12 letters).
     const canSpell = pairs.some((p) => spellingTarget(p));
     for (const spot of [this.spots.lava, this.spots.shark]) {
-      spot.locked = canSpell ? null : 'No words to spell here:\nadd single words of 2–12 letters.';
+      spot.locked = canSpell ? null : t('map.locked');
       spot.lock.setVisible(Boolean(spot.locked));
       spot.icon.setAlpha(spot.locked ? 0.45 : 1);
     }
@@ -155,7 +155,7 @@ export default class MapScene extends Phaser.Scene {
           ? this.add.container(0, 0, drawShopSign(this))
           : this.add.sprite(0, 14, 'robot', ROBOT_FRAMES.front).setScale(0.42).setOrigin(0.5, 1).setY(24);
     const lock = this.add.text(26, -30, '🔒', { fontSize: '26px' }).setOrigin(0.5).setVisible(false);
-    const label = this.add.text(0, 66, def.name, {
+    const label = this.add.text(0, 66, t(`places.${key}.name`), {
       fontFamily: FONT, fontSize: '26px', fontStyle: 'bold', color: '#3b1f08', stroke: '#f5e6c0', strokeThickness: 5,
     }).setOrigin(0.5);
     c.add([glow, ring, disk, icon, lock, label]);
@@ -187,8 +187,8 @@ export default class MapScene extends Phaser.Scene {
     spot.label.setColor('#9a3412');
     this.tweens.add({ targets: spot.container, scale: 1.18, duration: 140, ease: 'Back.easeOut' });
 
-    this.tipTitle.setText(SPOTS[key].name);
-    this.tipText.setText(spot.locked ?? `${SPOTS[key].about}\n\n${key === 'shop' ? 'Click to go shopping!' : 'Click to play!'}`);
+    this.tipTitle.setText(t(`places.${key}.name`));
+    this.tipText.setText(spot.locked ?? `${t(`places.${key}.about`)}\n\n${t(key === 'shop' ? 'map.clickShop' : 'map.clickPlay')}`);
     this.tipText.setColor(spot.locked ? '#fca5a5' : '#e2e8f0');
     const height = this.tipText.y + this.tipText.height + 16;
     this.tipBox.setSize(330, height);
@@ -200,33 +200,37 @@ export default class MapScene extends Phaser.Scene {
 
   createTooltip() {
     this.tipBox = this.add.rectangle(0, 0, 330, 140, 0x0f172a, 0.92).setOrigin(0).setStrokeStyle(2, 0xb45309);
-    this.tipTitle = this.add.text(16, 12, '', { fontFamily: FONT, fontSize: '22px', fontStyle: 'bold', color: '#fcd34d' });
-    this.tipText = this.add.text(16, 46, '', { fontFamily: FONT, fontSize: '17px', color: '#e2e8f0', lineSpacing: 4 });
+    // Hebrew text sits against the box's right edge.
+    const [x, originX] = isRtl() ? [330 - 16, 1] : [16, 0];
+    this.tipTitle = this.add.text(x, 12, '', textStyle({ fontFamily: FONT, fontSize: '22px', fontStyle: 'bold', color: '#fcd34d' })).setOrigin(originX, 0);
+    this.tipText = this.add.text(x, 46, '', textStyle({ fontFamily: FONT, fontSize: '17px', color: '#e2e8f0', lineSpacing: 4, align: isRtl() ? 'right' : 'left' })).setOrigin(originX, 0);
     this.tooltip = this.add.container(0, 0, [this.tipBox, this.tipTitle, this.tipText]).setDepth(20).setVisible(false);
   }
 
   createHeader() {
-    const title = this.add.text(W / 2, 46, 'The Word Realm', {
+    const title = this.add.text(W / 2, 46, t('map.title'), textStyle({
       fontFamily: FONT, fontSize: '40px', fontStyle: 'bold', color: '#3b1f08', stroke: '#f5e6c0', strokeThickness: 6,
-    }).setOrigin(0.5);
-    const hint = this.add.text(W / 2, 88, 'Choose a place to play', {
+    })).setOrigin(0.5);
+    const hint = this.add.text(W / 2, 88, t('map.hint'), textStyle({
       fontFamily: FONT, fontSize: '19px', fontStyle: 'italic', color: '#5b3510',
-    }).setOrigin(0.5);
-    this.listText = this.add.text(40, 36, '', {
+    })).setOrigin(0.5);
+    this.listText = this.add.text(40, 36, '', textStyle({
       fontFamily: FONT, fontSize: '18px', fontStyle: 'bold', color: '#fef3c7', backgroundColor: '#5b3510cc', padding: { x: 12, y: 7 },
-    });
+    })).setOrigin(0, 0); // (right-to-left text defaults to a right-hand origin)
     // The points every game pays into, to spend at the Trading Post.
-    this.pointsText = this.add.text(40, 80, '', {
+    this.pointsText = this.add.text(40, 80, '', textStyle({
       fontFamily: FONT, fontSize: '18px', fontStyle: 'bold', color: '#3b1f08', backgroundColor: '#fcd34dcc', padding: { x: 12, y: 7 },
-    });
-    const change = this.add.text(W - 40, 36, '✎ Change words', {
+    })).setOrigin(0, 0);
+    const change = this.add.text(W - 40, 36, `✎ ${t('map.changeWords')}`, textStyle({
       fontFamily: FONT, fontSize: '18px', fontStyle: 'bold', color: '#fef3c7', backgroundColor: '#1e3a5fdd', padding: { x: 12, y: 7 },
-    }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
+    })).setOrigin(1, 0).setInteractive({ useHandCursor: true });
     change.on('pointerover', () => change.setBackgroundColor('#2c5a8fee'));
     change.on('pointerout', () => change.setBackgroundColor('#1e3a5fdd'));
     change.on('pointerup', () => this.state === 'map' && this.openWordLists());
     this.changeButton = change;
-    this.header = this.add.container(0, 0, [title, hint, this.listText, this.pointsText, change]).setDepth(15);
+    // The language flag, to the left of "Change words" (only while the map shows, like the rest of the header).
+    this.langButton = addLangButton(this, change.x - change.width - 46, 36 + change.height / 2, { canToggle: () => this.state === 'map' });
+    this.header = this.add.container(0, 0, [title, hint, this.listText, this.pointsText, change, this.langButton]).setDepth(15);
   }
 
   // ---------------------------------------------------------------- drawing
@@ -238,7 +242,7 @@ export default class MapScene extends Phaser.Scene {
     g.fillStyle(0x38bdf8, 0.7).fillEllipse(x - 20, y - 14, 180, 70);
     g.lineStyle(4, 0x075985).strokeEllipse(x, y, 330, 170);
     this.lake = { x, y };
-    this.add.text(x - 75, y - 52, 'Shark Lake', { fontFamily: FONT, fontSize: '18px', fontStyle: 'italic', color: '#e0f2fe' }).setOrigin(0.5).setDepth(5);
+    this.add.text(x - 75, y - 52, t('places.shark.name'), { fontFamily: FONT, fontSize: '18px', fontStyle: 'italic', color: '#e0f2fe' }).setOrigin(0.5).setDepth(5);
   }
 
   drawMountains() {
@@ -296,7 +300,7 @@ export default class MapScene extends Phaser.Scene {
       new Phaser.Math.Vector2(spot.x + 210, spot.y + 120),
     ).getPoints(40);
     this.lavaPools = [[spot.x - 110, spot.y + 120, 22], [spot.x + 120, spot.y + 150, 28], [spot.x + 170, spot.y + 40, 16]];
-    this.add.text(spot.x - 120, spot.y - 75, 'Obsidian Fields', { fontFamily: FONT, fontSize: '16px', fontStyle: 'italic', color: '#fdba74' }).setOrigin(0.5).setDepth(5);
+    this.add.text(spot.x - 120, spot.y - 75, t('map.obsidian'), { fontFamily: FONT, fontSize: '16px', fontStyle: 'italic', color: '#fdba74' }).setOrigin(0.5).setDepth(5);
   }
 
   // A dotted trail, like the roads on old maps.
@@ -317,7 +321,7 @@ export default class MapScene extends Phaser.Scene {
     g.lineStyle(3, 0x451a03).strokeTriangle(x - 46, y + 28, x, y - 34, x + 46, y + 28);
     g.lineStyle(3, 0x451a03).lineBetween(x, y - 34, x, y - 56);
     g.fillStyle(0xdc2626).fillTriangle(x, y - 56, x + 22, y - 49, x, y - 42);
-    this.add.text(x, y + 56, 'Word Camp', {
+    this.add.text(x, y + 56, t('map.camp'), {
       fontFamily: FONT, fontSize: '20px', fontStyle: 'bold', color: '#3b1f08', stroke: '#f5e6c0', strokeThickness: 4,
     }).setOrigin(0.5).setDepth(5);
   }
@@ -335,7 +339,7 @@ export default class MapScene extends Phaser.Scene {
     };
     [0, 90, 180, 270].forEach((a) => point(a, 40, a === 270 ? 0xb91c1c : INK));
     [45, 135, 225, 315].forEach((a) => point(a, 24, 0x92400e));
-    this.add.text(x, y - 62, 'N', { fontFamily: FONT, fontSize: '20px', fontStyle: 'bold', color: '#3b1f08' }).setOrigin(0.5).setDepth(3);
+    this.add.text(x, y - 62, t('map.north'), { fontFamily: FONT, fontSize: '20px', fontStyle: 'bold', color: '#3b1f08' }).setOrigin(0.5).setDepth(3);
   }
 
   // ---------------------------------------------------------------- loop

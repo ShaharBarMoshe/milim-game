@@ -16,6 +16,7 @@
     "test:e2e": "PW_DISABLE_TS_ESM=1 playwright test"
   },
   "dependencies": {
+    "i18next": "26.5.10",
     "phaser": "3.90.0"
   },
   "devDependencies": {

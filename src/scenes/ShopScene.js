@@ -6,6 +6,8 @@ import { GAMES, ITEMS, Shop } from '../shop.js';
 import { FRAMES_PER_ROW, SWIM_ROWS } from '../sharkChase.js';
 import { sfx } from '../sound.js';
 import { FONT, INK, W, H, drawParchment } from './parchment.js';
+import { t, textStyle } from '../i18n.js';
+import { addLangButton, centeredText, itemText } from './lang.js';
 
 const CARD_W = 172;
 const GRID_W = 5 * CARD_W + 4 * 16; // a row of more than five cards shares this width
@@ -28,28 +30,30 @@ export default class ShopScene extends Phaser.Scene {
     this.cameras.main.fadeIn(250);
     drawParchment(this);
 
-    this.add.text(W / 2, 50, 'The Trading Post', {
+    this.add.text(W / 2, 50, t('shop.title'), textStyle({
       fontFamily: FONT, fontSize: '40px', fontStyle: 'bold', color: '#3b1f08', stroke: '#f5e6c0', strokeThickness: 6,
-    }).setOrigin(0.5);
-    this.add.text(W / 2, 92, 'Points from every game add up here. Choose something to buy.', {
+    })).setOrigin(0.5);
+    this.add.text(W / 2, 92, t('shop.subtitle'), textStyle({
       fontFamily: FONT, fontSize: '18px', fontStyle: 'italic', color: '#5b3510',
-    }).setOrigin(0.5);
-    this.pointsText = this.add.text(W - 40, 36, '', {
+    })).setOrigin(0.5);
+    this.pointsText = this.add.text(W - 40, 36, '', textStyle({
       fontFamily: FONT, fontSize: '22px', fontStyle: 'bold', color: '#3b1f08', backgroundColor: '#fcd34dee', padding: { x: 14, y: 8 },
-    }).setOrigin(1, 0);
-    const back = this.add.text(40, 36, '← Map', {
+    })).setOrigin(1, 0);
+    const back = this.add.text(40, 36, t('shop.back'), textStyle({
       fontFamily: FONT, fontSize: '20px', fontStyle: 'bold', color: '#fef3c7', backgroundColor: '#1e3a5fdd', padding: { x: 14, y: 8 },
-    }).setInteractive({ useHandCursor: true });
+    })).setOrigin(0, 0).setInteractive({ useHandCursor: true });
     back.on('pointerover', () => back.setBackgroundColor('#2c5a8fee'));
     back.on('pointerout', () => back.setBackgroundColor('#1e3a5fdd'));
     back.on('pointerup', () => !this.dialog && this.scene.start('map'));
     this.backButton = back;
+    // Switch the language (the shop is drawn again in it). Not while the buy dialog is open.
+    this.langButton = addLangButton(this, back.x + back.width + 48, 36 + back.height / 2, { canToggle: () => !this.dialog });
 
     GAMES.forEach((game, row) => {
       const top = ROW_TOP[row];
-      this.add.text(GRID_LEFT - 30, top + CARD_H / 2, game.name.replace(' ', '\n'), {
+      this.add.text(GRID_LEFT - 30, top + CARD_H / 2, t(`games.${game.id}`, { defaultValue: game.name }).replace(' ', '\n'), textStyle({
         fontFamily: FONT, fontSize: '24px', fontStyle: 'bold', color: '#3b1f08', align: 'right', lineSpacing: 4,
-      }).setOrigin(1, 0.5);
+      })).setOrigin(1, 0.5);
       const items = ITEMS.filter((it) => it.game === game.id);
       const cardW = Math.min(CARD_W, Math.floor((GRID_W - (items.length - 1) * CARD_GAP) / items.length));
       items.forEach((it, col) => {
@@ -67,21 +71,21 @@ export default class ShopScene extends Phaser.Scene {
     const c = this.add.container(x, y).setDepth(5);
     const bg = this.add.rectangle(0, 0, cardW, CARD_H, 0xf5e6c0, 0.95).setStrokeStyle(3, INK);
     const icon = this.add.container(0, -36, this.makeIcon(it, 0, 0)).setScale(ICON_SCALE);
-    const name = this.add.text(0, 0, it.name, {
+    const name = this.add.text(0, 0, itemText(it, 'name'), textStyle({
       fontFamily: FONT, fontSize: cardW < CARD_W ? '15px' : '18px', fontStyle: 'bold', color: '#3b1f08',
-    }).setOrigin(0.5);
-    const about = this.add.text(0, 24, it.about, {
+    })).setOrigin(0.5);
+    const about = this.add.text(0, 24, itemText(it, 'about'), textStyle({
       fontFamily: FONT, fontSize: '12px', color: '#5b3510', align: 'center', wordWrap: { width: cardW - 14 },
-    }).setOrigin(0.5);
-    const badge = this.add.text(0, CARD_H / 2 - 15, '', {
+    })).setOrigin(0.5);
+    const badge = this.add.text(0, CARD_H / 2 - 15, '', textStyle({
       fontFamily: FONT, fontSize: '16px', fontStyle: 'bold', color: '#fef3c7', backgroundColor: '#9a3412', padding: { x: 10, y: 5 },
-    }).setOrigin(0.5);
+    })).setOrigin(0.5);
     // Single-use items: how many are waiting to be used, beside the price.
     const single = it.kind === 'single';
     if (single) badge.setX(-cardW * 0.22);
-    const stock = this.add.text(cardW * 0.25, CARD_H / 2 - 15, '', {
+    const stock = this.add.text(cardW * 0.25, CARD_H / 2 - 15, '', textStyle({
       fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: '#fef3c7', backgroundColor: '#1e3a5f', padding: { x: 6, y: 4 },
-    }).setOrigin(0.5);
+    })).setOrigin(0.5);
     c.add([bg, icon, name, about, badge, stock]);
     c.setSize(cardW, CARD_H).setInteractive({ useHandCursor: true });
     c.on('pointerover', () => {
@@ -146,17 +150,17 @@ export default class ShopScene extends Phaser.Scene {
 
   // Price, or what you can do with it now.
   refresh() {
-    this.pointsText.setText(`🪙 ${this.shop.points} points`);
+    this.pointsText.setText(`🪙 ${t('common.points', { points: this.shop.points })}`);
     for (const card of Object.values(this.cards)) {
       const { item: it, badge, bg, stock } = card;
       const left = this.shop.count(it.id);
-      stock.setText(it.kind === 'single' ? `Have ${left}` : '').setVisible(it.kind === 'single');
+      stock.setText(it.kind === 'single' ? t('shop.have', { n: left }) : '').setVisible(it.kind === 'single');
       stock.setBackgroundColor(left ? '#15803d' : '#1e3a5f');
       if (it.kind === 'skin' && this.shop.owns(it.id)) {
         const worn = this.shop.has(it.id);
-        badge.setText(worn ? '✔ Wearing' : 'Wear it').setBackgroundColor(worn ? '#15803d' : '#1e3a5f');
+        badge.setText(worn ? `✔ ${t('shop.wearing')}` : t('shop.wear')).setBackgroundColor(worn ? '#15803d' : '#1e3a5f');
       } else if (this.shop.owns(it.id)) {
-        badge.setText('✔ Yours').setBackgroundColor('#15803d');
+        badge.setText(`✔ ${t('shop.yours')}`).setBackgroundColor('#15803d');
       } else {
         const short = this.shop.points < it.cost;
         badge.setText(`🪙 ${it.cost}`).setBackgroundColor(short ? '#7c6f64' : '#9a3412');
@@ -184,25 +188,26 @@ export default class ShopScene extends Phaser.Scene {
     // Full-screen catcher so nothing behind the dialog can be clicked.
     items.push(this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.45).setInteractive());
     items.push(this.add.rectangle(W / 2, H / 2, 560, 300, 0x0f172a, 0.96).setStrokeStyle(3, 0xb45309));
-    items.push(this.add.text(W / 2, H / 2 - 100, it.name, { fontFamily: FONT, fontSize: '30px', fontStyle: 'bold', color: '#fcd34d' }).setOrigin(0.5));
+    items.push(this.add.text(W / 2, H / 2 - 100, itemText(it, 'name'), textStyle({ fontFamily: FONT, fontSize: '30px', fontStyle: 'bold', color: '#fcd34d' })).setOrigin(0.5));
     const single = it.kind === 'single';
+    const points = this.shop.points;
     const text = problem
-      ? `It costs 🪙 ${it.cost} and you have 🪙 ${this.shop.points}.\n${problem}: play a game to earn them!`
-      : `${single ? 'Buy one more' : 'Buy it'} for 🪙 ${it.cost} points?\n` +
-        (single ? `Each one lasts ${it.lasts}. You have ${this.shop.count(it.id)} now.\n` : 'It stays yours for good.\n') +
-        `You have 🪙 ${this.shop.points}, leaving 🪙 ${this.shop.points - it.cost}.`;
-    items.push(this.add.text(W / 2, H / 2 - 20, text, {
+      ? `${t('shop.costs', { cost: it.cost, points })}\n${t('shop.needMore', { n: Math.max(0, it.cost - points) })}`
+      : `${t(single ? 'shop.buyOneMore' : 'shop.buyIt', { cost: it.cost })}\n` +
+        `${single ? t('shop.lasts', { lasts: itemText(it, 'lasts'), n: this.shop.count(it.id) }) : t('shop.forGood')}\n` +
+        t('shop.leaving', { points, left: points - it.cost });
+    items.push(centeredText(this, W / 2, H / 2 - 20, text, {
       fontFamily: FONT, fontSize: '20px', color: '#e2e8f0', align: 'center', lineSpacing: 8,
-    }).setOrigin(0.5));
+    }));
     const buttons = problem
-      ? [['OK', 0x1e3a5f, () => this.closeDialog()]]
-      : [['Buy', 0x15803d, () => this.buy(it)], ['Cancel', 0x7c2d12, () => this.closeDialog()]];
+      ? [[t('buttons.ok'), 0x1e3a5f, () => this.closeDialog()]]
+      : [[t('buttons.buy'), 0x15803d, () => this.buy(it)], [t('buttons.cancel'), 0x7c2d12, () => this.closeDialog()]];
     buttons.forEach(([label, color, onClick], i) => {
       const bx = W / 2 + (i - (buttons.length - 1) / 2) * 180;
-      const btn = this.add.text(bx, H / 2 + 90, label, {
+      const btn = this.add.text(bx, H / 2 + 90, label, textStyle({
         fontFamily: FONT, fontSize: '24px', fontStyle: 'bold', color: '#ffffff',
         backgroundColor: Phaser.Display.Color.IntegerToColor(color).rgba, padding: { x: 26, y: 10 },
-      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+      })).setOrigin(0.5).setInteractive({ useHandCursor: true });
       btn.on('pointerover', () => btn.setScale(1.06));
       btn.on('pointerout', () => btn.setScale(1));
       btn.on('pointerup', onClick);
@@ -229,11 +234,11 @@ export default class ShopScene extends Phaser.Scene {
       targets: counter,
       value: this.shop.points,
       duration: 600,
-      onUpdate: () => this.pointsText.setText(`🪙 ${Math.round(counter.value)} points`),
+      onUpdate: () => this.pointsText.setText(`🪙 ${t('common.points', { points: Math.round(counter.value) })}`),
       onComplete: () => this.refresh(),
     });
     this.refresh();
-    this.pointsText.setText(`🪙 ${before} points`);
+    this.pointsText.setText(`🪙 ${t('common.points', { points: before })}`);
     const card = this.cards[it.id];
     this.tweens.add({ targets: card.container, scale: 1.12, duration: 160, yoyo: true });
     const spent = this.add.text(this.pointsText.x - 80, this.pointsText.y + 50, `−${it.cost}`, {

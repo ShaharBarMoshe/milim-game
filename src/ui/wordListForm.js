@@ -4,14 +4,57 @@
 import { DIRECTIONS } from '../quiz.js';
 import { KIND_LABELS, KINDS, MIN_PAIRS, WordLibrary } from '../wordLists.js';
 import { MAX_FILE_BYTES, fallbackShareUrl, listFileName, parseListFile, toListFile } from '../listFile.js';
+import { language, t, toggleLanguage } from '../i18n.js';
 
 let root = null;
+
+// The two flags for the language button, as inline SVG (emoji flags don't show on Windows).
+const FLAGS = {
+  en: `<svg viewBox="0 0 57 38" width="42" height="28" aria-hidden="true"><rect width="57" height="38" fill="#b22234"/>${
+    [1, 3, 5, 7, 9, 11].map((i) => `<rect y="${(i * 38) / 13}" width="57" height="${38 / 13}" fill="#fff"/>`).join('')
+  }<rect width="24" height="${(7 * 38) / 13}" fill="#3c3b6e"/>${
+    [0, 1, 2, 3, 4].flatMap((r) => [0, 1, 2, 3, 4].map((c) => `<circle cx="${2.6 + c * 4.7 + (r % 2) * 2.3}" cy="${2.4 + r * 4.1}" r="0.9" fill="#fff"/>`)).join('')
+  }</svg>`,
+  he: `<svg viewBox="0 0 55 40" width="42" height="30" aria-hidden="true"><rect width="55" height="40" fill="#fff"/><rect y="4" width="55" height="6" fill="#0038b8"/><rect y="30" width="55" height="6" fill="#0038b8"/><g fill="none" stroke="#0038b8" stroke-width="1.6"><path d="M27.5 12.5 L34 23.75 L21 23.75 Z"/><path d="M27.5 27.5 L21 16.25 L34 16.25 Z"/></g></svg>`,
+};
+
+// The checks in src/wordLists.js and src/listFile.js report in English; these are their messages in the
+// chosen language. Anything not listed here is shown as it came.
+const ERRORS = [
+  [/^Type the (English|Hebrew|first|second) word$/, (m) => t(`errors.type.${m[1]}`)],
+  [/^The (English|Hebrew|first|second) word needs (?:Hebrew|English) letters$/, (m) => t(`errors.letters.${m[1]}`)],
+  [/^Keep it under (\d+) letters$/, (m) => t('errors.tooLong', { max: m[1] })],
+  [/^The two words must be different$/, () => t('errors.same')],
+  [/^"(.*)" is already in this list$/, (m) => t('errors.duplicate', { word: m[1] })],
+  [/^No valid words in this file$/, () => t('errors.noValidWords')],
+  [/^This list has no valid words to share$/, () => t('errors.nothingToShare')],
+  [/^This is not a word list file$/, () => t('errors.notAFile')],
+  [/^Not a word pair$/, () => t('errors.notAPair')],
+];
+
+export function localizeError(message) {
+  for (const [pattern, translate] of ERRORS) {
+    const m = pattern.exec(message ?? '');
+    if (m) return translate(m);
+  }
+  return message ?? '';
+}
 
 // " (skipped 2: row 3 – Not a word pair; row 5 – …)" for the rows a file or share left out.
 const skippedText = (skipped) =>
   skipped.length
-    ? ` (skipped ${skipped.length}: ${skipped.slice(0, 3).map((s) => `row ${s.row} – ${s.error}`).join('; ')}${skipped.length > 3 ? '; …' : ''})`
+    ? ` ${t('form.skipped', {
+      n: skipped.length,
+      rows: `${skipped.slice(0, 3).map((s) => t('form.skippedRow', { row: s.row, error: localizeError(s.error) })).join('; ')}${skipped.length > 3 ? '; …' : ''}`,
+    })}`
     : '';
+
+// Labels for a kind of list ('en-he' or 'he-he'), in the chosen language.
+const kindLabels = (kind) => {
+  const k = kind === KINDS.HE_HE ? 'heHe' : 'enHe';
+  const get = (field) => t(`kinds.${k}.${field}`, { defaultValue: KIND_LABELS[kind]?.[field] });
+  return { name: get('name'), first: get('first'), second: get('second'), firstHint: get('firstHint'), secondHint: get('secondHint'), forward: get('forward'), backward: get('backward') };
+};
 
 export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart, library = WordLibrary.load() } = {}) {
   hideWordListForm();
@@ -20,57 +63,59 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
   root.id = 'word-form';
   root.className = 'word-form';
   root.noValidate = true;
+  const rtl = language() === 'he';
   root.innerHTML = `
     <div class="word-panel">
-      <h1>Balloon Archer <span>English ↔ עברית</span></h1>
+      <button type="button" id="lang-toggle" class="lang-toggle" lang="${rtl ? 'en' : 'he'}" aria-label="${t('lang.switch')}" title="${t('lang.switch')}">${FLAGS[language()]}</button>
+      <h1>${t('app.title')} <span>English ↔ עברית</span></h1>
       <div class="list-bar">
-        <label>Word list <select id="list-select"></select></label>
-        <button type="button" id="list-new" class="word-secondary">+ New list</button>
-        <button type="button" id="word-upload" class="word-secondary">📂 Upload list</button>
-        <button type="button" id="word-share" class="word-secondary">📤 Share list</button>
+        <label>${t('form.wordList')} <select id="list-select"></select></label>
+        <button type="button" id="list-new" class="word-secondary">+ ${t('form.newList')}</button>
+        <button type="button" id="word-upload" class="word-secondary">📂 ${t('form.upload')}</button>
+        <button type="button" id="word-share" class="word-secondary">📤 ${t('form.share')}</button>
         <input type="file" id="word-file" hidden accept=".json,.txt,application/json,text/plain" />
       </div>
       <div id="word-upload-status" class="word-summary" role="status"></div>
       <div id="word-share-panel" class="share-panel" hidden>
-        <span>Send this list:</span>
+        <span>${t('form.sendList')}</span>
         <button type="button" id="share-whatsapp" class="share-link">WhatsApp</button>
-        <button type="button" id="share-email" class="share-link">Email</button>
-        <button type="button" id="share-download" class="word-secondary">⬇ Download file</button>
-        <button type="button" id="share-close" class="word-secondary" aria-label="Close sharing">✕</button>
+        <button type="button" id="share-email" class="share-link">${t('form.email')}</button>
+        <button type="button" id="share-download" class="word-secondary">⬇ ${t('form.download')}</button>
+        <button type="button" id="share-close" class="word-secondary" aria-label="${t('form.closeShare')}">✕</button>
       </div>
       <div class="list-head">
-        <input id="list-name" aria-label="List name" maxlength="40" autocomplete="off" />
-        <select id="list-kind" aria-label="Kind of list">
-          ${Object.values(KINDS).map((k) => `<option value="${k}">${KIND_LABELS[k].name}</option>`).join('')}
+        <input id="list-name" aria-label="${t('form.listName')}" maxlength="40" autocomplete="off" />
+        <select id="list-kind" aria-label="${t('form.listKind')}">
+          ${Object.values(KINDS).map((k) => `<option value="${k}">${kindLabels(k).name}</option>`).join('')}
         </select>
         <button type="button" id="list-lock" class="word-secondary" aria-pressed="false"></button>
-        <button type="button" id="list-delete" class="word-danger">Delete list</button>
+        <button type="button" id="list-delete" class="word-danger">${t('form.deleteList')}</button>
       </div>
       <div class="word-table-wrap">
         <table id="word-table">
-          <thead><tr><th id="head-first"></th><th id="head-second" dir="rtl"></th><th><span class="sr-only">Remove</span></th></tr></thead>
+          <thead><tr><th id="head-first"></th><th id="head-second" dir="rtl"></th><th><span class="sr-only">${t('form.remove')}</span></th></tr></thead>
           <tbody></tbody>
         </table>
-        <p id="word-empty" class="word-help">No words yet — add the first pair below.</p>
+        <p id="word-empty" class="word-help">${t('form.empty')}</p>
       </div>
       <div id="word-add" class="word-add">
         <input id="add-en" autocomplete="off" spellcheck="false" />
         <input id="add-he" dir="rtl" lang="he" autocomplete="off" spellcheck="false" />
-        <button type="button" id="add-pair" class="word-secondary">Add</button>
+        <button type="button" id="add-pair" class="word-secondary">${t('form.add')}</button>
       </div>
       <div id="word-error" class="word-bad" aria-live="polite"></div>
       <div id="word-summary" class="word-summary" aria-live="polite"></div>
       <div class="word-controls">
-        <label>Direction
+        <label>${t('form.direction')}
           <select id="word-direction">
-            <option value="${DIRECTIONS.MIXED}">Mixed (both ways)</option>
+            <option value="${DIRECTIONS.MIXED}">${t('form.mixed')}</option>
             <option value="${DIRECTIONS.EN_HE}"></option>
             <option value="${DIRECTIONS.HE_EN}"></option>
           </select>
         </label>
-        <button type="submit" id="word-start">To the map ➜</button>
+        <button type="submit" id="word-start">${t('form.toMap')} ${rtl ? '⬅' : '➜'}</button>
       </div>
-      <p class="word-help">Next, choose a game on the map. Ctrl+Enter goes there too.</p>
+      <p class="word-help">${t('form.help')}</p>
     </div>`;
   document.body.appendChild(root);
 
@@ -110,7 +155,7 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
   const disarmDelete = () => {
     clearTimeout(deleteArmed);
     deleteArmed = null;
-    del.textContent = 'Delete list';
+    del.textContent = t('form.deleteList');
     del.classList.remove('armed');
   };
 
@@ -139,8 +184,8 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
     const status = document.createElement('div');
     status.className = enough ? 'word-ok' : 'word-bad';
     status.textContent = enough
-      ? `${list.pairs.length} pairs${list.locked ? ' · locked, unlock to edit' : ''}`
-      : `${list.pairs.length} pair${list.pairs.length === 1 ? '' : 's'} — add at least ${MIN_PAIRS} to play`;
+      ? `${t('form.pairs', { n: list.pairs.length })}${list.locked ? ` · ${t('form.lockedNote')}` : ''}`
+      : t('form.notEnough', { n: list.pairs.length, min: MIN_PAIRS });
     summary.appendChild(status);
     start.disabled = !enough;
   };
@@ -150,24 +195,24 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
     renderSummary();
     name.value = list.name;
     name.readOnly = list.locked;
-    const labels = KIND_LABELS[list.kind];
+    const labels = kindLabels(list.kind);
     const firstHebrew = list.kind === KINDS.HE_HE;
     kind.value = list.kind;
     kind.disabled = list.locked || list.pairs.length > 0;
-    kind.title = kind.disabled && !list.locked ? 'Only an empty list can change its kind' : '';
+    kind.title = kind.disabled && !list.locked ? t('form.kindLocked') : '';
     $('#head-first').textContent = labels.first;
     $('#head-first').dir = firstHebrew ? 'rtl' : 'ltr';
     $('#head-second').textContent = labels.second;
     addEn.placeholder = labels.firstHint;
     addEn.dir = firstHebrew ? 'rtl' : 'ltr';
     addEn.lang = firstHebrew ? 'he' : 'en';
-    addEn.setAttribute('aria-label', `New ${firstHebrew ? 'first' : 'English'} word`);
+    addEn.setAttribute('aria-label', t(firstHebrew ? 'form.newFirst' : 'form.newEnglish'));
     addHe.placeholder = labels.secondHint;
-    addHe.setAttribute('aria-label', `New ${firstHebrew ? 'second' : 'Hebrew'} word`);
+    addHe.setAttribute('aria-label', t(firstHebrew ? 'form.newSecond' : 'form.newHebrew'));
     direction.options[1].textContent = labels.forward;
     direction.options[2].textContent = labels.backward;
-    lock.textContent = list.locked ? '🔒 Locked' : '🔓 Unlocked';
-    lock.title = list.locked ? 'Unlock to edit this list' : 'Lock to protect this list from changes';
+    lock.textContent = list.locked ? `🔒 ${t('form.locked')}` : `🔓 ${t('form.unlocked')}`;
+    lock.title = t(list.locked ? 'form.unlockTip' : 'form.lockTip');
     lock.setAttribute('aria-pressed', String(list.locked));
     disarmDelete();
     del.disabled = list.locked || library.lists.length === 1;
@@ -177,8 +222,8 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
       ...list.pairs.map((pair, index) => {
         const row = document.createElement('tr');
         row.dataset.index = index;
-        const en = pairInput(pair.en, 'en', `${firstHebrew ? 'First' : 'English'} word ${index + 1}`, list.locked, firstHebrew);
-        const he = pairInput(pair.he, 'he', `${firstHebrew ? 'Second' : 'Hebrew'} word ${index + 1}`, list.locked, true);
+        const en = pairInput(pair.en, 'en', t(firstHebrew ? 'form.firstWord' : 'form.englishWord', { n: index + 1 }), list.locked, firstHebrew);
+        const he = pairInput(pair.he, 'he', t(firstHebrew ? 'form.secondWord' : 'form.hebrewWord', { n: index + 1 }), list.locked, true);
         const cells = [en, he].map((input) => {
           const td = document.createElement('td');
           td.appendChild(input);
@@ -190,7 +235,7 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
           remove.type = 'button';
           remove.className = 'pair-remove';
           remove.textContent = '✕';
-          remove.setAttribute('aria-label', `Remove ${pair.en}`);
+          remove.setAttribute('aria-label', t('form.removeWord', { word: pair.en }));
           actions.appendChild(remove);
         }
         row.append(...cells, actions);
@@ -204,7 +249,7 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
   const addPair = () => {
     const check = library.addPair(library.selectedId, addEn.value, addHe.value);
     if (!check.ok) {
-      showError(check.error, check.field === 'en' ? addEn : addHe);
+      showError(localizeError(check.error), check.field === 'en' ? addEn : addHe);
       (check.field === 'en' ? addEn : addHe).focus();
       return;
     }
@@ -222,7 +267,7 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
     render();
   });
   $('#list-new').addEventListener('click', () => {
-    library.create('New list');
+    library.create(t('form.newListName'));
     showError(null);
     render();
     name.focus();
@@ -237,30 +282,30 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
     if (!chosen) return;
     // Lists are shared as .txt (see listFileName); .json files, from before that, are read the same way.
     if (!/\.(json|txt)$/i.test(chosen.name)) {
-      say('Choose a .json or .txt word list file', false);
+      say(t('form.chooseFile'), false);
       return;
     }
     if (chosen.size > MAX_FILE_BYTES) {
-      say('The file is too big (1 MB at most)', false);
+      say(t('form.tooBig'), false);
       return;
     }
     let text;
     try {
       text = await chosen.text();
     } catch {
-      say(`Couldn't read ${chosen.name}`, false);
+      say(t('form.cantRead', { file: chosen.name }), false);
       return;
     }
     const parsed = parseListFile(text, chosen.name.replace(/\.(json|txt)$/i, ''));
     const result = parsed.ok ? library.importList(parsed.list) : parsed;
     if (!result.ok) {
-      say(`${result.error}${skippedText(parsed.skipped)}`, false);
+      say(`${localizeError(result.error)}${skippedText(parsed.skipped)}`, false);
       return;
     }
     sharePanel.hidden = true;
     showError(null);
     render();
-    say(`Added ${result.added} words from ${chosen.name}${skippedText(parsed.skipped)}`, true);
+    say(`${t('form.added', { n: result.added, file: chosen.name })}${skippedText(parsed.skipped)}`, true);
   });
 
   // Share the selected list as its JSON file. WhatsApp and Email open the device's share sheet with the
@@ -272,13 +317,13 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
     const result = toListFile(list);
     if (!result.ok) {
       sharePanel.hidden = true;
-      say(`${result.error}${skippedText(result.skipped)}`, false);
+      say(`${localizeError(result.error)}${skippedText(result.skipped)}`, false);
       return;
     }
     const { file: listFile, skipped } = result;
     const json = JSON.stringify(listFile, null, 2);
     const fileName = listFileName(listFile.name);
-    const sharing = skipped.length ? `Sharing ${listFile.words.length} words${skippedText(skipped)}. ` : '';
+    const sharing = skipped.length ? `${t('form.sharing', { n: listFile.words.length })}${skippedText(skipped)}. ` : '';
     const download = () => {
       const url = URL.createObjectURL(new Blob([json], { type: 'text/plain' }));
       const link = document.createElement('a');
@@ -301,7 +346,7 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
     const send = async (app) => {
       const deviceFile = shareableFile();
       if (deviceFile) {
-        say(`${sharing}Choose ${app === 'whatsapp' ? 'WhatsApp' : 'Mail'} in the share menu to send ${deviceFile.name}.`, true);
+        say(`${sharing}${t(app === 'whatsapp' ? 'form.shareMenuWhatsapp' : 'form.shareMenuMail', { file: deviceFile.name })}`, true);
         try {
           // The file alone: given text as well, WhatsApp on Android sends only the text and drops the file.
           await navigator.share({ files: [deviceFile] });
@@ -312,13 +357,13 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
       }
       download();
       window.open(fallbackShareUrl(app, listFile, fileName), '_blank', 'noopener');
-      say(`${sharing}${fileName} was downloaded: attach it ${app === 'whatsapp' ? 'in the WhatsApp chat' : 'to the email'}.`, true);
+      say(`${sharing}${t(app === 'whatsapp' ? 'form.attachWhatsapp' : 'form.attachMail', { file: fileName })}`, true);
     };
     $('#share-whatsapp').onclick = () => send('whatsapp');
     $('#share-email').onclick = () => send('email');
     $('#share-download').onclick = () => {
       download();
-      say(`${sharing}Downloaded ${fileName}.`, true);
+      say(`${sharing}${t('form.downloaded', { file: fileName })}`, true);
     };
     sharePanel.hidden = false;
     say(sharing ? sharing.trim() : '', true);
@@ -348,7 +393,7 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
   });
   del.addEventListener('click', () => {
     if (!deleteArmed) {
-      del.textContent = 'Click again to delete';
+      del.textContent = t('form.confirmDelete');
       del.classList.add('armed');
       deleteArmed = setTimeout(disarmDelete, 3000);
       return;
@@ -379,11 +424,11 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
     const en = row.querySelector('.pair-en');
     const he = row.querySelector('.pair-he');
     const check = library.updatePair(library.selectedId, index, en.value, he.value);
-    showError(check.ok ? null : `${check.error} — change undone`);
+    showError(check.ok ? null : t('form.undone', { error: localizeError(check.error) }));
     const saved = library.selected.pairs[index];
     en.value = saved.en;
     he.value = saved.he;
-    row.querySelector('.pair-remove')?.setAttribute('aria-label', `Remove ${saved.en}`);
+    row.querySelector('.pair-remove')?.setAttribute('aria-label', t('form.removeWord', { word: saved.en }));
     renderSummary();
   });
   tbody.addEventListener('keydown', (e) => {
@@ -417,6 +462,16 @@ export function showWordListForm({ initialDirection = DIRECTIONS.MIXED, onStart,
     const dir = direction.value;
     hideWordListForm();
     onStart?.(pairs, dir, { id, name: listName, kind: listKind });
+  });
+
+  // The flag switches the language: the form is built again in it, keeping the words being typed.
+  $('#lang-toggle').addEventListener('click', () => {
+    const typed = [addEn.value, addHe.value];
+    const dir = direction.value;
+    toggleLanguage();
+    const form = showWordListForm({ initialDirection: dir, onStart, library });
+    [form.querySelector('#add-en').value, form.querySelector('#add-he').value] = typed;
+    form.querySelector('#lang-toggle').focus();
   });
 
   render();

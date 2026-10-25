@@ -44,6 +44,14 @@ npm run dev        # open the printed http://localhost URL
 - **Mouse**: the hunter turns and draws the bow toward the cursor.
 - The hunter gallops back and forth on his own during a round and halts to shoot. **A / D** or **← / →** turn the horse around.
 
+## Language (English / עברית)
+
+The game's own texts (menus, buttons, hints, the shop) are in English or Hebrew. The flag button switches them: on the
+word list screen it sits in the panel's top corner, on the map beside **Change words**, and in the shop beside the
+back button. It shows the language in use (the US flag for English, Israel's for Hebrew). In Hebrew the word list
+screen and the texts run right to left. The choice is saved in the browser. The words in your lists are never
+translated.
+
 ## Spoken words
 
 The English word of each question is said out loud, using the pronunciation recordings on
@@ -174,6 +182,8 @@ spell (as in the lava level), and three letter bubbles float in the water: the n
 - `src/quiz.js`: questions, options, scoring and stats (`Quiz`, `shuffle`, `DIRECTIONS`); pass `random` for determinism.
 - `src/ballistics.js`: `steer` (homing step) and `missPoint` (where a deliberate miss passes).
 - `src/ui/wordListForm.js`: the HTML word-list overlay (HTML so Hebrew typing and RTL work natively).
+- `src/i18n.js`: the UI language with [i18next](https://www.i18next.com/) (`initI18n`, `t`, `setLanguage`, `toggleLanguage`, `onLanguageChange`, `textStyle` for right-to-left Phaser text; saved under `balloon-archer-lang`). The texts are key → string config in `src/locales/en.json` and `src/locales/he.json`, which have the same keys.
+- `src/scenes/lang.js`: the flag button for the Phaser screens (`addLangButton`), shop item texts (`itemText`) and centred multi-line Hebrew text (`centeredText`).
 - `src/spelling.js`: lava-level rules (`spellingWord`, `SpellingRun`, `successRate`).
 - `src/speech.js`: spoken words (`Speaker`, `voice`): Wiktionary lookup, 6 s deadline, one word at a time.
 - `src/sharkChase.js`: Shark Lake's chase (`Shark`, `moveDiver`, `keyVector`, `pointerVector`, `placeLetters`, `touchedLetter`, `SWIM_ROWS`).

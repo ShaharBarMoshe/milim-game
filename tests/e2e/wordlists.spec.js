@@ -121,7 +121,8 @@ test('a Hebrew–Hebrew list takes Hebrew on both sides and plays in Hebrew', as
   await page.locator('#list-name').fill('הפכים שלי');
   await page.locator('#list-name').press('Enter');
   await page.locator('#list-kind').selectOption('he-he');
-  await expect(page.locator('#head-first')).toHaveText('מילה');
+  // The column headings are UI text, so they follow the UI language (English here), not the list's language.
+  await expect(page.locator('#head-first')).toHaveText('Word');
   await expect(page.locator('#add-en')).toHaveAttribute('dir', 'rtl');
   await expect(page.locator('#word-direction option').nth(1)).not.toContainText('English');
 

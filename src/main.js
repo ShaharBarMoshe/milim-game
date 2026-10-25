@@ -5,6 +5,12 @@ import GameScene from './scenes/GameScene.js';
 import LavaScene from './scenes/LavaScene.js';
 import ShopScene from './scenes/ShopScene.js';
 import SharkScene from './scenes/SharkScene.js';
+import { initI18n, language, onLanguageChange, setLanguage, t, toggleLanguage } from './i18n.js';
+
+// The UI language (saved in the browser; English the first time), before any screen draws its texts.
+initI18n();
+document.title = t('app.title');
+onLanguageChange(() => (document.title = t('app.title')));
 
 // Under test automation (Playwright sets navigator.webdriver) headless Chrome has no GPU and emulates
 // WebGL in software, which costs a lot of memory and CPU: draw with plain Canvas there instead.
@@ -24,4 +30,7 @@ const game = new Phaser.Game({
 });
 
 // Handy for poking at the game from the browser console during development.
-if (import.meta.env.DEV) window.game = game;
+if (import.meta.env.DEV) {
+  window.game = game;
+  window.i18n = { t, language, setLanguage, toggleLanguage };
+}

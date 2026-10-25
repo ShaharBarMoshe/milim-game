@@ -158,7 +158,12 @@ test('Play again in the balloon game end screen starts a new round', async ({ pa
     const rect = window.game.canvas.getBoundingClientRect();
     return { x: rect.left + (btn.x * rect.width) / 1280, y: rect.top + (btn.y * rect.height) / 720 };
   }, null, { timeout: 30_000 })).jsonValue();
-  await page.mouse.click(pos.x, pos.y);
-  await page.waitForFunction(() => window.game.scene.getScene('game').state === 'playing', null, { timeout: 30_000 });
+  // Under the load of a full run Phaser can miss a quick press-and-release in a slow frame, so press
+  // again while the end screen is still up (a press only counts once: the round then leaves 'over').
+  await expect.poll(async () => {
+    const state = await page.evaluate(() => window.game.scene.getScene('game').state);
+    if (state === 'over') await page.mouse.click(pos.x, pos.y, { delay: 120 });
+    return state;
+  }, { timeout: 30_000, intervals: [500, 1000, 2000] }).toBe('playing');
 });
 

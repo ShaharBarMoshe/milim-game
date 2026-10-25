@@ -1,5 +1,6 @@
 // The old-paper look shared by the map and the shop.
 import Phaser from 'phaser';
+import { t } from '../i18n.js';
 
 export const W = 1280;
 export const H = 720;
@@ -35,6 +36,6 @@ export function drawShopSign(scene) {
   g.fillStyle(0x5b3a1a).fillRect(-4, -4, 8, 34); // the post
   g.fillStyle(0x8a5a2b).fillRoundedRect(-30, -24, 60, 26, 4);
   g.lineStyle(2, 0x3b1f08).strokeRoundedRect(-30, -24, 60, 26, 4);
-  const text = scene.add.text(0, -11, 'SHOP', { fontFamily: FONT, fontSize: '15px', fontStyle: 'bold', color: '#fef3c7' }).setOrigin(0.5);
+  const text = scene.add.text(0, -11, t('map.shopSign'), { fontFamily: FONT, fontSize: '15px', fontStyle: 'bold', color: '#fef3c7' }).setOrigin(0.5);
   return [g, text];
 }

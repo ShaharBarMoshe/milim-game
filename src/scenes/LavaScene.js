@@ -9,6 +9,8 @@ import { PLAYER_SPRITES } from '../players.js';
 import { shuffle } from '../quiz.js';
 import { SAMPLE_PAIRS } from '../vocab.js';
 import { SpellingRun, pickSpellingPairs, typedLetter } from '../spelling.js';
+import { t, textStyle } from '../i18n.js';
+import { centeredText } from './lang.js';
 
 const W = 1280;
 const H = 720;
@@ -100,7 +102,7 @@ export default class LavaScene extends Phaser.Scene {
     });
 
     if (!this.words.length) {
-      this.endGame('No words to spell', 'Add single words (2–12 letters) to your list.');
+      this.endGame(t('spell.noWords'), t('spell.noWordsDetail'));
       return;
     }
     // Single-use shop items: an extra life is taken at the start of a game; a safety rope only when it
@@ -109,10 +111,10 @@ export default class LavaScene extends Phaser.Scene {
     if (this.extraLife) this.lives++;
     this.startWord();
     const ready = [
-      this.ropes() && `🪢 ${this.ropes()} safety rope${this.ropes() > 1 ? 's' : ''}`,
-      this.extraLife && `❤ Extra life (${this.shop.count('lava-life')} left)`,
+      this.ropes() && `🪢 ${t('lava.ropes', { n: this.ropes() })}`,
+      this.extraLife && `❤ ${t('lava.extraLife', { left: this.shop.count('lava-life') })}`,
     ].filter(Boolean);
-    if (ready.length) this.showMessage(`Using: ${ready.join('   ')}`, '#fff7c2');
+    if (ready.length) this.showMessage(t('common.using', { items: ready.join('   ') }), '#fff7c2');
     this.showPerkBar();
   }
 
@@ -400,7 +402,7 @@ export default class LavaScene extends Phaser.Scene {
     if (this.run.mistakes === 1) this.history.missed(this.run.pair);
     rock.alive = false;
     sfx.wrong();
-    this.showMessage(`"${rock.letter}" is wrong!`, '#ff8a6a');
+    this.showMessage(t('spell.wrongLetter', { letter: rock.letter }), '#ff8a6a');
     this.tweens.add({ targets: rock.container, y: LAVA_Y - rock.y + 60, duration: 700, ease: 'Quad.easeIn' });
     this.robot.setFrame(ROBOT_FRAMES.fall);
     if (!this.ropeFrom) {
@@ -421,7 +423,8 @@ export default class LavaScene extends Phaser.Scene {
         sfx.thud();
         this.cameras.main.shake(180, 0.004);
         const left = this.ropes();
-        this.showMessage(`The rope saved you! ${left ? `${left} rope${left > 1 ? 's' : ''} left` : 'No ropes left'}`, '#a8ffb0');
+        const ropesLeft = left ? t('lava.ropesLeft', { n: left }) : t('lava.noRopesLeft');
+        this.showMessage(`${t('lava.ropeSaved')} ${ropesLeft}`, '#a8ffb0');
         this.showPerkBar();
         this.steamPuffs(this.robot.x);
         this.tweens.add({ targets: this.robot, y: HANG_Y - 16, duration: 140, yoyo: true, repeat: 1, ease: 'Sine.easeOut' });
@@ -452,7 +455,7 @@ export default class LavaScene extends Phaser.Scene {
         this.time.delayedCall(250, () => this.state === 'playing' && this.robot.setFrame(ROBOT_FRAMES.ready));
         this.detachRope();
         this.state = 'playing';
-        this.showMessage('Try again: which letter comes next?', '#ffd166');
+        this.showMessage(t('spell.tryAgain'), '#ffd166');
       },
     });
   }
@@ -496,7 +499,7 @@ export default class LavaScene extends Phaser.Scene {
       if (this.state === 'over') return;
       if (this.lives <= 0) {
         voice.say(this.run.word);
-        this.endGame('Burned out!', `The word was "${this.run.word}".`);
+        this.endGame(t('lava.burnedOut'), t('spell.theWordWas', { word: this.run.word }));
         return;
       }
       // Back on the last safe rock to try again; the sunken rock is gone.
@@ -504,7 +507,7 @@ export default class LavaScene extends Phaser.Scene {
       this.tweens.add({ targets: this.robot, alpha: 1, duration: 300 });
       this.time.delayedCall(450, () => this.state === 'playing' && this.robot.setFrame(ROBOT_FRAMES.ready));
       this.state = 'playing';
-      this.showMessage('Try again: which letter comes next?', '#ffd166');
+      this.showMessage(t('spell.tryAgain'), '#ffd166');
     });
   }
 
@@ -527,7 +530,7 @@ export default class LavaScene extends Phaser.Scene {
     this.time.delayedCall(JUMP_MS + 1900, () => {
       if (this.state === 'over') return;
       this.wordIndex++;
-      if (this.wordIndex >= this.words.length) this.endGame('Lava master!', 'You crossed every word.');
+      if (this.wordIndex >= this.words.length) this.endGame(t('lava.master'), t('lava.crossedAll'));
       else this.startWord();
     });
   }
@@ -540,20 +543,20 @@ export default class LavaScene extends Phaser.Scene {
     this.updateHud();
     const items = [];
     items.push(this.add.rectangle(W / 2, H / 2, 760, 360, 0x2a0c08, 0.92).setStrokeStyle(4, 0xffb040));
-    items.push(this.add.text(W / 2, H / 2 - 120, title, {
+    items.push(this.add.text(W / 2, H / 2 - 120, title, textStyle({
       fontFamily: FONT, fontSize: '50px', fontStyle: 'bold', color: '#ffd166', stroke: '#000', strokeThickness: 6,
-    }).setOrigin(0.5));
-    items.push(this.add.text(W / 2, H / 2 - 30,
-      `${detail}\nWords spelled: ${this.spelled} / ${this.words.length}   Mistakes: ${this.mistakes}\n` +
-      (this.bonus ? `⭐ Stage bonus +${this.bonus}\n` : '') +
-      `Score: ${this.score}   🪙 +${this.score} this game, ${this.shop.points} in all`, {
+    })).setOrigin(0.5));
+    items.push(centeredText(this, W / 2, H / 2 - 30,
+      `${detail}\n${t('spell.summary', { spelled: this.spelled, total: this.words.length, mistakes: this.mistakes })}\n` +
+      (this.bonus ? `${t('common.stageBonus', { bonus: this.bonus })}\n` : '') +
+      t('spell.pointsLine', { score: this.score, total: this.shop.points }), {
         fontFamily: FONT, fontSize: '24px', color: '#ffffff', align: 'center', lineSpacing: 10,
-      }).setOrigin(0.5));
+      }));
     const by = H / 2 + 115;
     const buttons = [
-      this.words.length && ['Play again', 0xc0480e, () => this.scene.restart({ pairs: this.pairs })],
-      ['Balloons', 0x2e9e4f, () => this.scene.start('game')],
-      ['Map', 0x3a6ea5, () => this.scene.start('map')],
+      this.words.length && [t('buttons.playAgain'), 0xc0480e, () => this.scene.restart({ pairs: this.pairs })],
+      [t('buttons.balloons'), 0x2e9e4f, () => this.scene.start('game')],
+      [t('buttons.map'), 0x3a6ea5, () => this.scene.start('map')],
     ].filter(Boolean);
     buttons.forEach(([label, color, onClick], i) => {
       items.push(this.makeButton(W / 2 + (i - (buttons.length - 1) / 2) * 230, by, label, color, onClick));
@@ -569,18 +572,18 @@ export default class LavaScene extends Phaser.Scene {
     const style = { fontFamily: FONT, fontSize: '28px', color: '#ffffff', stroke: '#2a0f05', strokeThickness: 6 };
     const fixed = (o) => o.setScrollFactor(0).setDepth(90);
     this.livesText = fixed(this.add.text(24, 18, '', { ...style, color: '#ff6b5a' }));
-    this.wordText = fixed(this.add.text(24, 58, '', { ...style, fontSize: '22px' }));
+    this.wordText = fixed(this.add.text(24, 58, '', textStyle({ ...style, fontSize: '22px' })).setOrigin(0, 0));
     this.scoreText = fixed(this.add.text(W - 24, 18, '', style).setOrigin(1, 0));
 
     this.add.rectangle(W / 2, 74, 560, 134, 0x2a0c08, 0.85).setStrokeStyle(3, 0xffb040).setScrollFactor(0).setDepth(89);
-    this.promptLabel = fixed(this.add.text(W / 2, 22, 'Spell in English', { fontFamily: FONT, fontSize: '18px', color: '#ffcf99' }).setOrigin(0.5, 0));
+    this.promptLabel = fixed(this.add.text(W / 2, 22, t('spell.inEnglish'), textStyle({ fontFamily: FONT, fontSize: '18px', color: '#ffcf99' })).setOrigin(0.5, 0));
     this.promptText = fixed(this.add.text(W / 2, 44, '', {
       fontFamily: FONT, fontSize: '40px', fontStyle: 'bold', color: '#ffffff', rtl: true,
     }).setOrigin(0.5, 0));
     this.progressText = fixed(this.add.text(W / 2, 98, '', {
       fontFamily: 'Courier New, monospace', fontSize: '30px', fontStyle: 'bold', color: '#ffd166',
     }).setOrigin(0.5, 0));
-    this.messageText = fixed(this.add.text(W / 2, 170, '', { ...style, fontSize: '30px' }).setOrigin(0.5).setAlpha(0));
+    this.messageText = fixed(this.add.text(W / 2, 170, '', textStyle({ ...style, fontSize: '30px' })).setOrigin(0.5).setAlpha(0));
 
     // Hear the English word again (or press Space).
     this.sayButton = fixed(this.add.text(W / 2 + 236, 60, '🔊', {
@@ -589,7 +592,7 @@ export default class LavaScene extends Phaser.Scene {
     this.sayButton.on('pointerover', () => this.sayButton.setScale(1.12));
     this.sayButton.on('pointerout', () => this.sayButton.setScale(1));
     this.sayButton.on('pointerdown', () => this.sayWord());
-    fixed(this.add.text(W / 2 + 236, 102, 'Space', { fontFamily: FONT, fontSize: '14px', color: '#ffcf99' }).setOrigin(0.5));
+    fixed(this.add.text(W / 2 + 236, 102, t('keys.space'), textStyle({ fontFamily: FONT, fontSize: '14px', color: '#ffcf99' })).setOrigin(0.5));
   }
 
   sayWord() {
@@ -599,13 +602,14 @@ export default class LavaScene extends Phaser.Scene {
   }
 
   updateHud() {
-    this.livesText.setText('❤ '.repeat(Math.max(0, this.lives)).trim() || '—');
+    const hearts = '❤ '.repeat(Math.max(0, this.lives)).trim();
+    this.livesText.setText(hearts || '—');
     // The wallet total, which every game adds to, and this game's share of it.
     this.scoreText.setText(`🪙 ${this.tally.total}  (+${this.score})`);
-    this.wordText.setText(this.words.length ? `Word ${Math.min(this.wordIndex + 1, this.words.length)} / ${this.words.length}` : '');
+    this.wordText.setText(this.words.length ? t('spell.wordOf', { index: Math.min(this.wordIndex + 1, this.words.length), total: this.words.length }) : '');
     if (this.run) {
       const hebrew = this.run.lang === 'he';
-      this.promptLabel.setText(hebrew ? 'Spell the matching word in Hebrew' : 'Spell in English');
+      this.promptLabel.setText(t(hebrew ? 'spell.inHebrew' : 'spell.inEnglish'));
       this.promptText.setText(this.run.prompt);
       this.progressText.setRTL(hebrew).setText([...this.run.progress()].join(' '));
     }
@@ -623,11 +627,11 @@ export default class LavaScene extends Phaser.Scene {
   }
 
   makeButton(x, y, label, color, onClick) {
-    const btn = this.add.text(x, y, label, {
+    const btn = this.add.text(x, y, label, textStyle({
       fontFamily: FONT, fontSize: '28px', fontStyle: 'bold', color: '#ffffff',
       backgroundColor: Phaser.Display.Color.IntegerToColor(color).rgba,
       padding: { x: 26, y: 12 },
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    })).setOrigin(0.5).setInteractive({ useHandCursor: true });
     btn.on('pointerover', () => btn.setScale(1.06));
     btn.on('pointerout', () => btn.setScale(1));
     btn.on('pointerup', () => this.state === 'over' && onClick());

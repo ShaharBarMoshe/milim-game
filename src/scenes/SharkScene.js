@@ -9,6 +9,8 @@ import { showPerks } from './perks.js';
 import { WRONG_POINTS, WordHistory, spellingPoints, stageBonus } from '../score.js';
 import { SAMPLE_PAIRS } from '../vocab.js';
 import { SpellingRun, pickSpellingPairs } from '../spelling.js';
+import { t, textStyle } from '../i18n.js';
+import { centeredText } from './lang.js';
 import {
   CATCH_RADIUS, FRAMES_PER_ROW, LAKE, LETTER_RADIUS, STUN_MS, SWIM_ROWS, Shark,
   keyVector, moveDiver, placeLetters, pointerVector, swimDirection, touchedLetter,
@@ -78,7 +80,7 @@ export default class SharkScene extends Phaser.Scene {
     this.input.on('gameout', () => (this.pointerSteer = false));
 
     if (!this.words.length) {
-      this.endGame('No words to spell', 'Add single words (2–12 letters) to your list.');
+      this.endGame(t('spell.noWords'), t('spell.noWordsDetail'));
       return;
     }
     // Shark repellent from the shop: the shark starts the game stunned.
@@ -86,7 +88,7 @@ export default class SharkScene extends Phaser.Scene {
     if (this.repelled) {
       // The scene clock only catches up with the game's on the first update, so use the game's time.
       this.shark.stun(this.game.loop.time, REPEL_MS);
-      this.showMessage('🧴 Shark repellent: the shark is stunned!', '#a8ffb0');
+      this.showMessage(`🧴 ${t('shark.repelled')}`, '#a8ffb0');
     }
     this.perkBar = showPerks(this, [this.repelled && 'shark-repel', suit?.id], { right: W - 24, top: 62 });
     this.startWord();
@@ -216,7 +218,7 @@ export default class SharkScene extends Phaser.Scene {
       this.shark.lunge(this.diver);
       this.sharkSprite.setPosition(this.shark.x, this.shark.y);
       this.cameras.main.shake(220, 0.006);
-      this.showMessage(`"${bubble.letter}" is wrong! The shark lunges!`, '#ff8a6a');
+      this.showMessage(t('shark.wrongLetter', { letter: bubble.letter }), '#ff8a6a');
       this.updateHud();
       return;
     }
@@ -228,7 +230,7 @@ export default class SharkScene extends Phaser.Scene {
       this.finishWord();
       return;
     }
-    this.showMessage('Right! The shark is stunned 💫', '#a8ffb0');
+    this.showMessage(`${t('shark.right')} 💫`, '#a8ffb0');
     this.placeBubbles();
   }
 
@@ -248,7 +250,7 @@ export default class SharkScene extends Phaser.Scene {
     this.time.delayedCall(NEXT_WORD_MS, () => {
       if (this.state === 'over') return;
       this.wordIndex++;
-      if (this.wordIndex >= this.words.length) this.endGame('You escaped!', 'You spelled every word.');
+      if (this.wordIndex >= this.words.length) this.endGame(t('shark.escaped'), t('shark.spelledAll'));
       else this.startWord();
     });
   }
@@ -262,14 +264,14 @@ export default class SharkScene extends Phaser.Scene {
     this.updateHud();
     if (this.lives <= 0) {
       voice.say(this.run.word);
-      this.endGame('Caught!', `The word was "${this.run.word}".`);
+      this.endGame(t('shark.caught'), t('spell.theWordWas', { word: this.run.word }));
       return;
     }
     this.shark.x = this.diver.x < W / 2 ? LAKE.right - 60 : LAKE.left + 60;
     this.shark.y = this.diver.y < H / 2 ? LAKE.bottom - 60 : LAKE.top + 60;
     this.sharkSprite.setPosition(this.shark.x, this.shark.y);
     this.tweens.add({ targets: this.diver, alpha: 0.25, duration: 120, yoyo: true, repeat: Math.floor(SAFE_MS / 240) - 1, onComplete: () => this.diver.setAlpha(1) });
-    this.showMessage(`Chomp! ${this.lives} ${this.lives === 1 ? 'life' : 'lives'} left`, '#ff8a6a');
+    this.showMessage(t('shark.chomp', { n: this.lives }), '#ff8a6a');
   }
 
   endGame(title, detail) {
@@ -281,19 +283,19 @@ export default class SharkScene extends Phaser.Scene {
     this.updateHud();
     const items = [];
     items.push(this.add.rectangle(W / 2, H / 2, 760, 360, 0x062a4a, 0.94).setStrokeStyle(4, 0x7dd3fc));
-    items.push(this.add.text(W / 2, H / 2 - 120, title, {
+    items.push(this.add.text(W / 2, H / 2 - 120, title, textStyle({
       fontFamily: FONT, fontSize: '50px', fontStyle: 'bold', color: '#7dd3fc', stroke: '#000', strokeThickness: 6,
-    }).setOrigin(0.5));
-    items.push(this.add.text(W / 2, H / 2 - 30,
-      `${detail}\nWords spelled: ${this.spelled} / ${this.words.length}   Mistakes: ${this.mistakes}\n` +
-      (this.bonus ? `⭐ Stage bonus +${this.bonus}\n` : '') +
-      `Score: ${this.score}   🪙 +${this.score} this game, ${this.shop.points} in all`, {
+    })).setOrigin(0.5));
+    items.push(centeredText(this, W / 2, H / 2 - 30,
+      `${detail}\n${t('spell.summary', { spelled: this.spelled, total: this.words.length, mistakes: this.mistakes })}\n` +
+      (this.bonus ? `${t('common.stageBonus', { bonus: this.bonus })}\n` : '') +
+      t('spell.pointsLine', { score: this.score, total: this.shop.points }), {
         fontFamily: FONT, fontSize: '24px', color: '#ffffff', align: 'center', lineSpacing: 10,
-      }).setOrigin(0.5));
+      }));
     const buttons = [
-      this.words.length && ['Play again', 0x0e7490, () => this.scene.restart({ pairs: this.pairs })],
-      this.words.length && ['Lava', 0xc0480e, () => this.scene.start('lava', { pairs: this.pairs })],
-      ['Map', 0x3a6ea5, () => this.scene.start('map')],
+      this.words.length && [t('buttons.playAgain'), 0x0e7490, () => this.scene.restart({ pairs: this.pairs })],
+      this.words.length && [t('buttons.lava'), 0xc0480e, () => this.scene.start('lava', { pairs: this.pairs })],
+      [t('buttons.map'), 0x3a6ea5, () => this.scene.start('map')],
     ].filter(Boolean);
     buttons.forEach(([label, color, onClick], i) => {
       items.push(this.makeButton(W / 2 + (i - (buttons.length - 1) / 2) * 230, H / 2 + 115, label, color, onClick));
@@ -307,21 +309,21 @@ export default class SharkScene extends Phaser.Scene {
     const style = { fontFamily: FONT, fontSize: '28px', color: '#ffffff', stroke: '#06223a', strokeThickness: 6 };
     const fixed = (o) => o.setDepth(90);
     this.livesText = fixed(this.add.text(24, 18, '', { ...style, color: '#ff6b5a' }));
-    this.wordText = fixed(this.add.text(24, 58, '', { ...style, fontSize: '22px' }));
+    this.wordText = fixed(this.add.text(24, 58, '', textStyle({ ...style, fontSize: '22px' })).setOrigin(0, 0));
     this.scoreText = fixed(this.add.text(W - 24, 18, '', style).setOrigin(1, 0));
 
     this.add.rectangle(W / 2, 54, 560, 100, 0x062a4a, 0.85).setStrokeStyle(3, 0x7dd3fc).setDepth(89);
-    this.promptLabel = fixed(this.add.text(W / 2, 10, 'Spell in English', { fontFamily: FONT, fontSize: '16px', color: '#bae6fd' }).setOrigin(0.5, 0));
+    this.promptLabel = fixed(this.add.text(W / 2, 10, t('spell.inEnglish'), textStyle({ fontFamily: FONT, fontSize: '16px', color: '#bae6fd' })).setOrigin(0.5, 0));
     this.promptText = fixed(this.add.text(W / 2, 28, '', {
       fontFamily: FONT, fontSize: '34px', fontStyle: 'bold', color: '#ffffff', rtl: true,
     }).setOrigin(0.5, 0));
     this.progressText = fixed(this.add.text(W / 2, 70, '', {
       fontFamily: 'Courier New, monospace', fontSize: '26px', fontStyle: 'bold', color: '#fde68a',
     }).setOrigin(0.5, 0));
-    this.messageText = fixed(this.add.text(W / 2, 140, '', { ...style, fontSize: '28px' }).setOrigin(0.5).setAlpha(0));
-    this.hintText = fixed(this.add.text(W / 2, H - 16, 'Swim with the arrow keys or the mouse · Space: hear the word · Esc: map', {
+    this.messageText = fixed(this.add.text(W / 2, 140, '', textStyle({ ...style, fontSize: '28px' })).setOrigin(0.5).setAlpha(0));
+    this.hintText = fixed(this.add.text(W / 2, H - 16, t('shark.hint'), textStyle({
       fontFamily: FONT, fontSize: '16px', color: '#e0f2fe',
-    }).setOrigin(0.5, 1).setAlpha(0.8));
+    })).setOrigin(0.5, 1).setAlpha(0.8));
 
     // Hear the word again (or press Space).
     this.sayButton = fixed(this.add.text(W / 2 + 236, 44, '🔊', {
@@ -330,7 +332,7 @@ export default class SharkScene extends Phaser.Scene {
     this.sayButton.on('pointerover', () => this.sayButton.setScale(1.12));
     this.sayButton.on('pointerout', () => this.sayButton.setScale(1));
     this.sayButton.on('pointerdown', () => this.sayWord());
-    fixed(this.add.text(W / 2 + 236, 84, 'Space', { fontFamily: FONT, fontSize: '14px', color: '#bae6fd' }).setOrigin(0.5));
+    fixed(this.add.text(W / 2 + 236, 84, t('keys.space'), textStyle({ fontFamily: FONT, fontSize: '14px', color: '#bae6fd' })).setOrigin(0.5));
   }
 
   sayWord() {
@@ -340,12 +342,13 @@ export default class SharkScene extends Phaser.Scene {
   }
 
   updateHud() {
-    this.livesText.setText('❤ '.repeat(Math.max(0, this.lives)).trim() || '—');
+    const hearts = '❤ '.repeat(Math.max(0, this.lives)).trim();
+    this.livesText.setText(hearts || '—');
     this.scoreText.setText(`🪙 ${this.tally.total}  (+${this.score})`);
-    this.wordText.setText(this.words.length ? `Word ${Math.min(this.wordIndex + 1, this.words.length)} / ${this.words.length}` : '');
+    this.wordText.setText(this.words.length ? t('spell.wordOf', { index: Math.min(this.wordIndex + 1, this.words.length), total: this.words.length }) : '');
     if (this.run) {
       const hebrew = this.run.lang === 'he';
-      this.promptLabel.setText(hebrew ? 'Spell the matching word in Hebrew' : 'Spell in English');
+      this.promptLabel.setText(t(hebrew ? 'spell.inHebrew' : 'spell.inEnglish'));
       this.promptText.setText(this.run.prompt);
       this.progressText.setRTL(hebrew).setText([...this.run.progress()].join(' '));
     }
@@ -358,11 +361,11 @@ export default class SharkScene extends Phaser.Scene {
   }
 
   makeButton(x, y, label, color, onClick) {
-    const btn = this.add.text(x, y, label, {
+    const btn = this.add.text(x, y, label, textStyle({
       fontFamily: FONT, fontSize: '28px', fontStyle: 'bold', color: '#ffffff',
       backgroundColor: Phaser.Display.Color.IntegerToColor(color).rgba,
       padding: { x: 26, y: 12 },
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    })).setOrigin(0.5).setInteractive({ useHandCursor: true });
     btn.on('pointerover', () => btn.setScale(1.06));
     btn.on('pointerout', () => btn.setScale(1));
     btn.on('pointerup', () => this.state === 'over' && onClick());

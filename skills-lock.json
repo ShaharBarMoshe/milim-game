@@ -1,0 +1,117 @@
+{
+  "version": 1,
+  "skills": {
+    "api-security-best-practices": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "computedHash": "ce16d10df486a28a3ba894d646de3243fc2bf9990f563fc7a9b074fd720e24d5"
+    },
+    "architecture-patterns": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "b92f11750a7cf9a6e5fa005ff72b0ae4f6aa45adc684193537d82ecb6e4eefd8"
+    },
+    "better-icons": {
+      "source": "better-auth/better-icons",
+      "sourceType": "github",
+      "computedHash": "656a618d6d5d5e9c567253eff57a06bee3be5d4fb983bdc401a46a209c5b76de"
+    },
+    "documentation": {
+      "source": "anthropics/knowledge-work-plugins",
+      "sourceType": "github",
+      "computedHash": "c24a1672a7edad51225859d6549d9a61892f704a4527a65ce3cddd913ca04550"
+    },
+    "evaluate-rag": {
+      "source": "hamelsmu/evals-skills",
+      "sourceType": "github",
+      "skillPath": "skills/evaluate-rag/SKILL.md",
+      "computedHash": "2ffd989e885c2eceeede12e4f3470926010bd07c87e36e7dd0c6af52c4597504"
+    },
+    "gh-cli": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "skillPath": "skills/gh-cli/SKILL.md",
+      "computedHash": "cbe644b0c6760ae2a1eaafa39133920d889331327065d92a131675a665273e56"
+    },
+    "nestjs-best-practices": {
+      "source": "kadajett/agent-nestjs-skills",
+      "sourceType": "github",
+      "computedHash": "1b6f82e889d19d305e38e35594de08eca0242321f353cafa4cf5e61dd3aa1a73"
+    },
+    "nodejs-express-server": {
+      "source": "aj-geddes/useful-ai-prompts",
+      "sourceType": "github",
+      "computedHash": "94af4eda308df6d27b94cc866de0d3d857755c91da01808d3d8130d91ebaf231"
+    },
+    "oauth2": {
+      "source": "claude-dev-suite/claude-dev-suite",
+      "sourceType": "github",
+      "computedHash": "c26536854106c56a31edd7d91ab4ac42ac414cae55292b48ed43f3a26dc301ca"
+    },
+    "phaser-component-test-scenes": {
+      "source": "pmarashian/cursor-agent-skills",
+      "sourceType": "github",
+      "skillPath": "phaser-component-test-scenes/SKILL.md",
+      "computedHash": "5d6198cceb88c2923a762226b4ce4d64631ae545b96c9a4079ef1e713a375ea4"
+    },
+    "phaser-movement-testing": {
+      "source": "pmarashian/cursor-agent-skills",
+      "sourceType": "github",
+      "skillPath": "phaser-movement-testing/SKILL.md",
+      "computedHash": "2fb18b55be1ddb0d27ea436efcda545fdc30fb09dc9912664c3a77a61a671f73"
+    },
+    "presentation-architect": {
+      "source": "aviz85/claude-skills-library",
+      "sourceType": "github",
+      "computedHash": "debc658a8913fb06657eb284e99252050596f76acd6092ce7924e36d96d7bb9c"
+    },
+    "presentation-builder": {
+      "source": "yonatangross/orchestkit",
+      "sourceType": "github",
+      "computedHash": "fde3d274e8a9eff5c304e45fb3fb807bcbf56571851b712b4202b5854297c8f7"
+    },
+    "presentation-design": {
+      "source": "aaronvanston/skills-presentations",
+      "sourceType": "github",
+      "computedHash": "ae17fe6c1228fea19aacfea5c2c206192fea17260e978e92eaa4ab01ed568258"
+    },
+    "qa-expert": {
+      "source": "daymade/claude-code-skills",
+      "sourceType": "github",
+      "computedHash": "cb6fafeb55b7e3eeabb69568ca8b80c6ba828c66eeffb3bbcc301029117349d4"
+    },
+    "rag-implementation": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/llm-application-dev/skills/rag-implementation/SKILL.md",
+      "computedHash": "b2c65d9929448481586adb195214a14b35e3d9b6a2ad6f42b0013224985b4e2c"
+    },
+    "scss-best-practices": {
+      "source": "mindrally/skills",
+      "sourceType": "github",
+      "computedHash": "16ac9e8bf135304254a358776c5fac043799c1c3ac40221da1338ee972506de5"
+    },
+    "ui-ux-pro-max": {
+      "source": "nextlevelbuilder/ui-ux-pro-max-skill",
+      "sourceType": "github",
+      "computedHash": "0a413bf988d06481f69bb81df2070741c3ba12dd9f1be2706d57f259c905992d"
+    },
+    "user-guide-writing": {
+      "source": "akillness/oh-my-gods",
+      "sourceType": "github",
+      "computedHash": "97d7b25a4009042814f9f6bd9accd7bbd6e7667636885418751a2e5832c55a23"
+    },
+    "vector-index-tuning": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/llm-application-dev/skills/vector-index-tuning/SKILL.md",
+      "computedHash": "54304fb341e648a840165a38104c5a6f317e4d3dc519d66b2748d5503943e325"
+    },
+    "webapp-testing": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/webapp-testing/SKILL.md",
+      "computedHash": "ad5b1fc52807e9afa4635e59218a026b164dc58b6c3f41b0f7c644dcd6ccf572"
+    }
+  }
+}
