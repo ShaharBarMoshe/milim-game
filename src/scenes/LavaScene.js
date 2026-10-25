@@ -4,6 +4,7 @@ import { sfx } from '../sound.js';
 import { voice } from '../speech.js';
 import { Shop } from '../shop.js';
 import { showPerks } from './perks.js';
+import { afterSpeech } from './afterSpeech.js';
 import { WordHistory, spellingPoints, stageBonus } from '../score.js';
 import { PLAYER_SPRITES } from '../players.js';
 import { shuffle } from '../quiz.js';
@@ -252,7 +253,7 @@ export default class LavaScene extends Phaser.Scene {
     this.run = new SpellingRun(pair, { choices: CHOICES });
     // How tricky the word is as it starts: missing it now makes it worth more next game, not this one.
     this.tricky = this.history.tricky(pair);
-    voice.say(this.run.word); // English only: a Hebrew word stays silent
+    voice.say(this.run.word);
     this.start = this.makeRock(START_X, START_TOP, { pillar: true });
     this.rocks = [];
     this.run.columns.forEach((col, i) => {
@@ -498,7 +499,7 @@ export default class LavaScene extends Phaser.Scene {
     this.time.delayedCall(RESPAWN_MS, () => {
       if (this.state === 'over') return;
       if (this.lives <= 0) {
-        voice.say(this.run.word);
+        this.sayBoth();
         this.endGame(t('lava.burnedOut'), t('spell.theWordWas', { word: this.run.word }));
         return;
       }
@@ -518,7 +519,13 @@ export default class LavaScene extends Phaser.Scene {
     if (this.ropes()) this.attachRope(this.current);
     this.animateJump(this.goal, () => {
       sfx.win();
-      voice.say(this.run.word);
+      // The next word comes once both words have been said.
+      afterSpeech(this, this.sayBoth(), 1900, () => {
+        if (this.state === 'over') return;
+        this.wordIndex++;
+        if (this.wordIndex >= this.words.length) this.endGame(t('lava.master'), t('lava.crossedAll'));
+        else this.startWord();
+      });
       this.detachRope();
       this.score = this.tally.add(points);
       this.spelled++;
@@ -527,12 +534,6 @@ export default class LavaScene extends Phaser.Scene {
       this.showMessage(`${this.run.prompt} = ${this.run.word}   +${points}`, '#a8ffb0');
       this.updateHud();
     }, false);
-    this.time.delayedCall(JUMP_MS + 1900, () => {
-      if (this.state === 'over') return;
-      this.wordIndex++;
-      if (this.wordIndex >= this.words.length) this.endGame(t('lava.master'), t('lava.crossedAll'));
-      else this.startWord();
-    });
   }
 
   endGame(title, detail) {
@@ -593,6 +594,13 @@ export default class LavaScene extends Phaser.Scene {
     this.sayButton.on('pointerout', () => this.sayButton.setScale(1));
     this.sayButton.on('pointerdown', () => this.sayWord());
     fixed(this.add.text(W / 2 + 236, 102, t('keys.space'), textStyle({ fontFamily: FONT, fontSize: '14px', color: '#ffcf99' })).setOrigin(0.5));
+  }
+
+  // When a word ends (spelled or lost): its prompt, then the word itself, like "לחם = bread" on screen.
+  // Resolves once both have been said.
+  sayBoth() {
+    voice.say(this.run.prompt);
+    return voice.say(this.run.word);
   }
 
   sayWord() {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { Speaker, speakable, pickAudio, lookupUrl, SPEAK_TIMEOUT_MS, CACHE_KEY } from '../src/speech.js';
+import { Speaker, speakable, speechWord, pickAudio, pickHebrewAudio, pickVoice, lookupUrl, hebrewLookupUrl, SPEAK_TIMEOUT_MS, CACHE_KEY } from '../src/speech.js';
 import { memoryStorage, throwingStorage } from './helpers.js';
 
 // A lookupUrl() response (the files on a Wiktionary page), trimmed to what the game reads.
@@ -9,6 +9,9 @@ const media = (...titles) => ({
 });
 const DOG = media('File:Dog.jpg', 'File:En-uk-dog.ogg', 'File:en-us-dog.ogg', 'File:Nl-dog.ogg');
 const DOG_URL = `${FILE_URL}en-us-dog.ogg`;
+// A hebrewLookupUrl() response: the search finds the phrase too, ranked first.
+const DOG_HE = media('File:LL-Q9288 (heb)-YaronSh-כלב ים.wav', 'File:LL-Q9288 (heb)-Buffer-כלב.wav');
+const DOG_HE_URL = `${FILE_URL}LL-Q9288 (heb)-Buffer-כלב.wav`;
 
 // A fake <audio>: play() resolves at once and 'ended' fires after `length` ms.
 function fakeAudio(played, { length = 500, fail = false } = {}) {
@@ -65,6 +68,131 @@ describe('what can be spoken', () => {
   });
 });
 
+describe('Hebrew', () => {
+  it('takes Hebrew words and phrases, without vowel points', () => {
+    expect(speechWord('כלב')).toEqual({ word: 'כלב', lang: 'he' });
+    expect(speechWord(' כֶּלֶב ')).toEqual({ word: 'כלב', lang: 'he' });
+    expect(speechWord('כלב  ים')).toEqual({ word: 'כלב ים', lang: 'he' });
+    expect(speechWord('בית־ספר')).toEqual({ word: 'בית-ספר', lang: 'he' });
+    expect(speechWord('Dog')).toEqual({ word: 'dog', lang: 'en' });
+    for (const text of ['dog כלב', 'כלב1', 'café', '', null]) expect(speechWord(text)).toBe(null);
+  });
+
+  it('searches Commons for Lingua Libre Hebrew recordings', () => {
+    const url = new URL(hebrewLookupUrl('כלב'));
+    expect(url.origin + url.pathname).toBe('https://commons.wikimedia.org/w/api.php');
+    expect(url.searchParams.get('gsrsearch')).toBe('intitle:"LL-Q9288" intitle:"כלב"');
+    expect(url.searchParams.get('origin')).toBe('*');
+  });
+
+  it('picks a recording of exactly the word, not a phrase with it in', () => {
+    expect(pickHebrewAudio(DOG_HE, 'כלב')).toBe(DOG_HE_URL);
+    expect(pickHebrewAudio(media('File:LL-Q9288 (heb)-YaronSh-כלב ים.wav'), 'כלב')).toBe(null);
+    expect(pickHebrewAudio(media('File:LL-Q9288 (heb)-YaronSh-כלב ים.wav'), 'כלב ים')).toBe(`${FILE_URL}LL-Q9288 (heb)-YaronSh-כלב ים.wav`);
+    expect(pickHebrewAudio(media('File:LL-Q1860 (eng)-X-כלב.wav', 'File:כלב.jpg'), 'כלב')).toBe(null);
+    expect(pickHebrewAudio(null, 'כלב')).toBe(null);
+    // Names with vowel points, and a maqaf phrase that ends in the word.
+    expect(pickHebrewAudio(media('File:LL-Q9288 (heb)-Uziel302-אָלֶף־בֵּית.wav', 'File:LL-Q9288 (heb)-Ijon-בַּיִת.wav'), 'בית')).toBe(`${FILE_URL}LL-Q9288 (heb)-Ijon-בַּיִת.wav`);
+    expect(pickHebrewAudio(media('File:LL-Q9288 (heb)-YaronSh-אלף־בית.wav'), 'בית')).toBe(null);
+    expect(pickHebrewAudio(media('File:LL-Q9288 (heb)-YaronSh-אלף־בית.wav'), 'אלף-בית')).toBe(`${FILE_URL}LL-Q9288 (heb)-YaronSh-אלף־בית.wav`);
+  });
+
+  it('picks the browser voice for the language, preferring the home country', () => {
+    const voices = [{ lang: 'en-GB' }, { lang: 'en-US' }, { lang: 'he-IL' }, { lang: 'fr-FR' }];
+    expect(pickVoice(voices, 'en')).toBe(voices[1]);
+    expect(pickVoice(voices, 'he')).toBe(voices[2]);
+    expect(pickVoice([{ lang: 'iw_IL' }], 'he')).toEqual({ lang: 'iw_IL' });
+    expect(pickVoice([{ lang: 'en-GB' }], 'he')).toBe(null);
+    expect(pickVoice(undefined, 'en')).toBe(null);
+  });
+});
+
+describe('the browser voice, for words with no recording', () => {
+  let spoken;
+  beforeEach(() => {
+    vi.useFakeTimers();
+    spoken = [];
+  });
+  afterEach(() => vi.useRealTimers());
+
+  // A fake speechSynthesis: speak() ends each utterance after 300 ms, or fails with `error`.
+  function fakeSynth({ voices = [{ lang: 'he-IL' }, { lang: 'en-US' }], error = null } = {}) {
+    const synth = {
+      cancelled: 0,
+      getVoices: () => voices,
+      cancel: () => synth.cancelled++,
+      speak: (u) => {
+        if (error) return setTimeout(() => u.onerror?.({ error }), 0);
+        spoken.push({ text: u.text, lang: u.lang });
+        setTimeout(() => u.onend?.(), 300);
+      },
+    };
+    return synth;
+  }
+  const make = (fetch, synth, extra = {}) =>
+    new Speaker({ fetch, synth, createUtterance: (text) => ({ text }), createAudio: fakeAudio([]), storage: memoryStorage(), ...extra });
+  const say = async (s, text) => {
+    const heard = s.say(text);
+    await vi.runAllTimersAsync();
+    return heard;
+  };
+
+  it('says a Hebrew word with no recording in the Hebrew voice', async () => {
+    expect(await say(make(async () => json(media('File:כלב.jpg')), fakeSynth()), 'כלב')).toBe(true);
+    expect(spoken).toEqual([{ text: 'כלב', lang: 'he-IL' }]);
+  });
+
+  it('says an English word with no recording in the English voice, and when the request fails', async () => {
+    expect(await say(make(async () => json(media('File:Dog.jpg')), fakeSynth()), 'zzz')).toBe(true);
+    expect(await say(make(async () => json({}, 500), fakeSynth()), 'dog')).toBe(true);
+    expect(spoken.map((u) => u.lang)).toEqual(['en-US', 'en-US']);
+  });
+
+  it('prefers the recording to the voice', async () => {
+    expect(await say(make(async () => json(DOG_HE), fakeSynth()), 'כלב')).toBe(true);
+    expect(spoken).toEqual([]);
+  });
+
+  it('stays silent with no voice for the language, or no speechSynthesis at all', async () => {
+    const none = async () => json(media('File:כלב.jpg'));
+    expect(await say(make(none, fakeSynth({ voices: [{ lang: 'en-US' }] })), 'כלב')).toBe(false);
+    expect(await say(make(none, null), 'כלב')).toBe(false);
+    expect(spoken).toEqual([]);
+  });
+
+  it('waits a moment for a voice list that is still loading', async () => {
+    const listeners = {};
+    let voices = [];
+    const synth = { ...fakeSynth(), getVoices: () => voices, addEventListener: (t, fn) => (listeners[t] = fn), removeEventListener: () => {} };
+    const heard = make(async () => json(media('File:כלב.jpg')), synth).say('כלב');
+    await vi.advanceTimersByTimeAsync(50);
+    voices = [{ lang: 'he-IL' }];
+    listeners.voiceschanged();
+    await vi.runAllTimersAsync();
+    expect(await heard).toBe(true);
+    expect(spoken).toEqual([{ text: 'כלב', lang: 'he-IL' }]);
+  });
+
+  it('says a word the browser refused as soon as the player clicks or types', async () => {
+    let gesture = null;
+    const synth = fakeSynth({ error: 'not-allowed' });
+    const s = make(async () => json(media('File:כלב.jpg')), synth, { waitForGesture: (fn) => (gesture = fn) });
+    expect(await say(s, 'כלב')).toBe(false);
+    synth.speak = (u) => spoken.push({ text: u.text, lang: u.lang });
+    gesture();
+    expect(spoken).toEqual([{ text: 'כלב', lang: 'he-IL' }]);
+  });
+
+  it('stop() silences the voice', async () => {
+    const synth = fakeSynth();
+    const s = make(async () => json(media('File:כלב.jpg')), synth);
+    s.say('כלב');
+    await vi.advanceTimersByTimeAsync(10);
+    s.stop();
+    expect(synth.cancelled).toBe(1);
+  });
+});
+
 describe('Speaker', () => {
   let played;
   beforeEach(() => {
@@ -93,10 +221,19 @@ describe('Speaker', () => {
     expect(new URL(fetch.mock.calls[0][0]).searchParams.get('titles')).toBe('ice cream');
   });
 
-  it('says nothing and asks nothing for non-English text', async () => {
+  it('says nothing and asks nothing for text that is neither English nor Hebrew', async () => {
     const fetch = vi.fn();
-    expect(await speaker(fetch).say('כלב')).toBe(false);
+    for (const text of ['café', 'room 101', 'dog כלב', '']) expect(await speaker(fetch).say(text)).toBe(false);
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('looks a Hebrew word up among the Hebrew recordings on Commons and plays it', async () => {
+    const fetch = vi.fn(async () => json(DOG_HE));
+    const heard = speaker(fetch).say('כֶּלֶב');
+    await vi.runAllTimersAsync();
+    expect(await heard).toBe(true);
+    expect(fetch.mock.calls[0][0]).toBe(hebrewLookupUrl('כלב'));
+    expect(played).toEqual([DOG_HE_URL]);
   });
 
   it('plays words one after another, not on top of each other', async () => {

@@ -54,16 +54,20 @@ translated.
 
 ## Spoken words
 
-The English word of each question is said out loud, using the pronunciation recordings on
-[Wiktionary](https://en.wiktionary.org) (free, no key needed). Each word is looked up once and the answer is saved in
-the browser, so only new words call the API (a word with no recording is checked again after 30 days):
+The word of each question is said out loud with real recordings, free and with no key needed: English words from the
+pronunciation recordings on [Wiktionary](https://en.wiktionary.org), Hebrew words from the
+[Lingua Libre](https://lingualibre.org) recordings on Wikimedia Commons (files named `LL-Q9288 (heb)-<speaker>-<word>.wav`).
+A word with no recording is said by the browser's own voice for its language (`speechSynthesis`, en-US / he-IL), when
+the device has one; Chrome on Linux usually has no Hebrew voice. Each word is looked up once and the answer is saved
+in the browser, so only new words call the API (a word with no recording is checked again after 30 days):
 
-- Balloons: when the question starts, whether it shows the English word or the Hebrew one, and again when the
-  question ends (popped or escaped).
-- Lava: when a word starts, and again when it is crossed (or lost).
-- Words with anything other than English letters are skipped. Only words and phrases that Wiktionary has an
-  English recording of are said (e.g. "dog", "ice cream"); others stay silent. A failed request, or one with no answer within 6 seconds, is
-  skipped too; the game never waits for speech.
+- Balloons: the question's word when it starts, and its answer when the question ends (popped or escaped).
+- Lava and Shark Lake: the word to spell when it starts (and from 🔊 or Space); when it is spelled or lost, both words:
+  the prompt, then the spelled word.
+- In lava and Shark Lake, English–Hebrew lists say the English word, Hebrew–Hebrew lists the Hebrew one (vowel points are ignored).
+  Anything else (digits, mixed alphabets, accents) is skipped. A failed request falls back to the browser's voice; a
+  word not said within 6 seconds is dropped. The only wait: the next question or word comes once the words
+  said at the end of the last one have finished (at most 5 s longer than usual, `src/scenes/afterSpeech.js`).
 
 ## Word list files
 
@@ -185,7 +189,7 @@ spell (as in the lava level), and three letter bubbles float in the water: the n
 - `src/i18n.js`: the UI language with [i18next](https://www.i18next.com/) (`initI18n`, `t`, `setLanguage`, `toggleLanguage`, `onLanguageChange`, `textStyle` for right-to-left Phaser text; saved under `balloon-archer-lang`). The texts are key → string config in `src/locales/en.json` and `src/locales/he.json`, which have the same keys.
 - `src/scenes/lang.js`: the flag button for the Phaser screens (`addLangButton`), shop item texts (`itemText`) and centred multi-line Hebrew text (`centeredText`).
 - `src/spelling.js`: lava-level rules (`spellingWord`, `SpellingRun`, `successRate`).
-- `src/speech.js`: spoken words (`Speaker`, `voice`): Wiktionary lookup, 6 s deadline, one word at a time.
+- `src/speech.js`: spoken words (`Speaker`, `voice`): Wiktionary (English) or Commons (Hebrew) lookup, the browser voice as fallback, 6 s deadline, one word at a time.
 - `src/sharkChase.js`: Shark Lake's chase (`Shark`, `moveDiver`, `keyVector`, `pointerVector`, `placeLetters`, `touchedLetter`, `SWIM_ROWS`).
 - `src/scenes/SharkScene.js`: Shark Lake. In dev, `getScene('shark')` exposes `state`, `run`, `bubbles`, `diver`, `shark`, `lives`, `score`.
 - `tools/slice_divers.py` (`npm run divers`): cuts the diver and the shark out of `gemini-pics/diver.jpeg` and `shark.jpeg` (removing the black and the blue water backgrounds) into `diver.png`, `shark.png` and a recoloured `diver_<suit>.png` per wetsuit.

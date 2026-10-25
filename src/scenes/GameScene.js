@@ -9,6 +9,7 @@ import { spellingTarget, successRate } from '../spelling.js';
 import { Shop } from '../shop.js';
 import { WordHistory, stageBonus } from '../score.js';
 import { showPerks } from './perks.js';
+import { afterSpeech } from './afterSpeech.js';
 import { PLAYER_SPRITES, PROJECTILES } from '../players.js';
 import { t, textStyle } from '../i18n.js';
 import { centeredText } from './lang.js';
@@ -378,9 +379,8 @@ export default class GameScene extends Phaser.Scene {
     this.waveResolved = false;
     this.question = this.quiz.next();
     this.setBanner(t('balloons.popTranslation'), this.question.prompt);
-    // Say the pair's English word whichever side the banner shows: the question, or the answer to find
-    // when the question is the Hebrew word. A Hebrew–Hebrew pair has no English word and stays silent.
-    voice.say(this.question.pair.en);
+    // Say the question's word as it starts; its answer is said when the question ends (popped or escaped).
+    voice.say(this.question.prompt);
     this.spawnWave(this.question);
   }
 
@@ -473,7 +473,7 @@ export default class GameScene extends Phaser.Scene {
       balloon.award = points;
       this.fireArrow(balloon, true);
       sfx.correct();
-      voice.say(this.question.pair.en);
+      this.answerSaid = voice.say(this.question.answer);
     } else {
       balloon.tried = true;
       balloon.img.setAlpha(0.55);
@@ -492,10 +492,10 @@ export default class GameScene extends Phaser.Scene {
     this.waveResolved = true;
     this.quiz.skip();
     this.setBanner(t('balloons.tooLate'), this.question.answer, '#ffd166');
-    voice.say(this.question.pair.en);
+    const spoken = voice.say(this.question.answer);
     this.updateHud();
     const id = this.waveId;
-    this.time.delayedCall(REVEAL_MS, () => id === this.waveId && this.nextQuestion());
+    afterSpeech(this, spoken, REVEAL_MS, () => id === this.waveId && this.nextQuestion());
   }
 
   flashBalloon(balloon) {
@@ -567,7 +567,8 @@ export default class GameScene extends Phaser.Scene {
     this.floatText(body.x, body.y - 20, `+${balloon.award}`, '#ffffff');
 
     const id = this.waveId;
-    this.time.delayedCall(NEXT_QUESTION_MS, () => id === this.waveId && this.nextQuestion());
+    // The next question comes once the answer has been said.
+    afterSpeech(this, this.answerSaid, NEXT_QUESTION_MS, () => id === this.waveId && this.nextQuestion());
   }
 
   // A pop with no arrow in it, for a thrown axe or a magic orb (the pop sprite sheets have the arrow

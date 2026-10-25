@@ -61,15 +61,16 @@ async function recordSpeech(page) {
 
 const said = (page) => page.evaluate(() => window.said);
 
-test('says the English word at the start of every question, and again once it is answered', async ({ page }) => {
+test('says the question word at the start of every question, and its answer once it is answered', async ({ page }) => {
   const asked = [];
   await page.route(DICTIONARY, (route) => {
     asked.push(new URL(route.request().url()).searchParams.get('titles'));
     return route.fulfill({ json: { query: { pages: [{ title: 'File:en-us-word.ogg', imageinfo: [{ url: 'https://audio.invalid/word.ogg' }] }] } } });
   });
+  await page.route('https://commons.wikimedia.org/w/api.php?**', (route) => route.fulfill({ json: { query: { pages: [] } } }));
   await useWords(page, WORDS);
   await recordSpeech(page);
-  // Hebrew questions, so the English word said is the answer.
+  // Hebrew questions: the Hebrew word is said first, the English answer at the end.
   await page.locator('#word-direction').selectOption('he-en');
   await playBalloons(page);
 
@@ -78,13 +79,13 @@ test('says the English word at the start of every question, and again once it is
     expect(current.prompt).toBe(current.pair.he);
     const wave = await page.evaluate(() => window.game.scene.getScene('game').waveId);
     const inWave = async () => (await said(page)).filter((e) => e.wave === wave).map((e) => e.text);
-    // Said at the start whether the banner shows the English word or the Hebrew one (then it's the answer).
-    expect(await inWave()).toEqual([current.pair.en]);
+    expect(await inWave()).toEqual([current.prompt]);
     await clickBalloon(page, 'correct');
-    await expect.poll(inWave).toEqual([current.pair.en, current.pair.en]);
+    await expect.poll(inWave).toEqual([current.prompt, current.answer]);
+    expect(current.answer).toBe(current.pair.en);
     await page.waitForFunction((w) => window.game.scene.getScene('game').waveId > w, wave, { timeout: 30_000 });
   }
-  // Only English words are looked up, each once.
+  // Wiktionary is asked only about the English answers, each once.
   expect(asked.length).toBeGreaterThan(0);
   expect(new Set(asked).size).toBe(asked.length);
   for (const word of asked) expect(['dog', 'cat', 'house', 'sun']).toContain(word);
@@ -130,4 +131,63 @@ test('a word is looked up once: after a reload the saved answer is used', async 
   const again = await page.evaluate(() => window.game.scene.getScene('lava').run.word);
   // Only a word this browser hasn't seen yet goes to the API.
   expect(asked).toEqual(again === word ? [word] : [word, again]);
+});
+
+test('a Hebrew–Hebrew list says its Hebrew word, from the Hebrew recordings on Commons', async ({ page }) => {
+  const asked = [];
+  await page.route(DICTIONARY, (route) => route.abort());
+  await page.route('https://commons.wikimedia.org/w/api.php?**', (route) => {
+    asked.push(new URL(route.request().url()).searchParams.get('gsrsearch'));
+    return route.fulfill({ json: { query: { pages: [] } } });
+  });
+  await useWords(page, pairs('חם=קר', 'גדול=קטן'), '/?level=lava', 'he-he');
+  await page.waitForFunction(() => window.game?.scene?.getScene('lava')?.state === 'playing', null, { timeout: 30_000 });
+  const word = await page.evaluate(() => window.game.scene.getScene('lava').run.word);
+  expect(['קר', 'קטן']).toContain(word);
+  await expect.poll(() => asked).toEqual([`intitle:"LL-Q9288" intitle:"${word}"`]);
+});
+
+test('the lava level says both words when a word is crossed', async ({ page }) => {
+  await page.route(DICTIONARY, (route) => route.fulfill({ json: { query: { pages: [] } } }));
+  await page.route('https://commons.wikimedia.org/w/api.php?**', (route) => route.fulfill({ json: { query: { pages: [] } } }));
+  await useWords(page, WORDS, '/?level=lava');
+  await page.waitForFunction(() => window.game?.scene?.getScene('lava')?.state === 'playing', null, { timeout: 30_000 });
+  await recordSpeech(page);
+  const { word, prompt } = await page.evaluate(() => {
+    const { run } = window.game.scene.getScene('lava');
+    return { word: run.word, prompt: run.prompt };
+  });
+  // Type the word, one jump at a time.
+  for (let i = 0; i < word.length; i++) {
+    await page.waitForFunction((n) => {
+      const s = window.game.scene.getScene('lava');
+      return s.state === 'playing' && s.run.position === n;
+    }, i, { timeout: 30_000 });
+    await page.keyboard.press(`Key${word[i].toUpperCase()}`);
+  }
+  await expect.poll(async () => (await said(page)).map((e) => e.text).slice(0, 2), { timeout: 30_000 }).toEqual([prompt, word]);
+});
+
+test('the next lava word waits until both words have been said', async ({ page }) => {
+  await page.route(DICTIONARY, (route) => route.fulfill({ json: { query: { pages: [] } } }));
+  // The Hebrew word's lookup takes 3 s, longer than the usual pause between words.
+  await page.route('https://commons.wikimedia.org/w/api.php?**', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    await route.fulfill({ json: { query: { pages: [] } } }).catch(() => {});
+  });
+  await useWords(page, WORDS, '/?level=lava');
+  await page.waitForFunction(() => window.game?.scene?.getScene('lava')?.state === 'playing', null, { timeout: 30_000 });
+  const word = await page.evaluate(() => window.game.scene.getScene('lava').run.word);
+  for (let i = 0; i < word.length; i++) {
+    await page.waitForFunction((n) => {
+      const s = window.game.scene.getScene('lava');
+      return s.state === 'playing' && s.run.position === n;
+    }, i, { timeout: 30_000 });
+    await page.keyboard.press(`Key${word[i].toUpperCase()}`);
+  }
+  await page.waitForFunction(() => window.game.scene.getScene('lava').state === 'jumping', null, { timeout: 30_000 });
+  const crossed = Date.now();
+  await page.waitForFunction(() => window.game.scene.getScene('lava').wordIndex === 1, null, { timeout: 30_000 });
+  // Normally about 2.5 s (the jump and the pause); here the slow lookup holds it longer.
+  expect(Date.now() - crossed).toBeGreaterThan(3000);
 });

@@ -24,7 +24,7 @@ Rules:
   the specs instead teleport the sprite (`diver.setPosition`) and let `update()` do the collision, which is the "test seam" workaround the skill recommends.
 - **Keep e2e light** (memory: a full run once took 1.2 GB): Canvas renderer under `navigator.webdriver`, one worker, no
   `--repeat-each` and no `fps.limit`. During development, run the one spec that covers a change; run the full suite only for broad changes.
-- **Mock the network**: Wiktionary is routed with `page.route` in `speech.spec.js`; everything else gets silent failures.
+- **Mock the network**: Wiktionary and Commons are routed with `page.route` in `speech.spec.js`; everything else gets silent failures.
 - **Every e2e test checks for page errors** (`pageerror` collected in `beforeEach`, asserted empty in `afterEach`).
 
 ### Priorities
@@ -136,7 +136,11 @@ Risks: overlapping audio; repeated API calls; a refused autoplay never retried; 
 |----|-----|-------|------|------|--------|
 | TC-SPK-001 | P1 | unit | What can be spoken; picking the recording; queueing; deadlines; stop | tests/speech.test.js | exists |
 | TC-SPK-002 | P1 | unit | The cache: only new words call the API, a no-recording result expires after 30 days, blocked storage | tests/speech.test.js | exists |
-| TC-SPK-003 | P2 | e2e | Words are said in the balloon and lava games; the cache survives a reload | tests/e2e/speech.spec.js | exists |
+| TC-SPK-003 | P2 | e2e | Balloons say the question word at the start and the answer at the end; lava says its word, and both words once crossed; the cache survives a reload | tests/e2e/speech.spec.js | exists |
+| TC-SPK-004 | P1 | unit | Hebrew: what can be spoken (vowel points, maqaf), the Commons search, picking exactly the word's recording | tests/speech.test.js | added |
+| TC-SPK-005 | P1 | unit | The browser voice: used only with no recording or a failed request, per language, waits for the voice list, retries after a gesture, stop() cancels | tests/speech.test.js | added |
+| TC-SPK-006 | P2 | e2e | A Hebrew–Hebrew list looks its word up on Commons | tests/e2e/speech.spec.js | added |
+| TC-SPK-007 | P2 | e2e | The next lava word waits until the end-of-word speech has finished | tests/e2e/speech.spec.js | added |
 
 ### 8. English / Hebrew UI (I18N)
 
